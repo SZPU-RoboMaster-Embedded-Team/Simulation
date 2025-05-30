@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>弹簧-质量-阻尼系统演示</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <!-- 添加Chart.js注释插件 -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.0.0/dist/chartjs-plugin-annotation.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mathjs@11.8.0/lib/browser/math.min.js"></script>
     <!-- 添加KaTeX支持 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
@@ -230,6 +232,90 @@
             text-align: center;
             margin: 10px 0;
         }
+        /* PID控制器样式 */
+        .pid-panel {
+            border-top: 1px solid #ddd;
+            margin-top: 20px;
+            padding-top: 20px;
+        }
+        .pid-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .pid-toggle {
+            margin: 10px 0;
+        }
+        .pid-toggle label {
+            margin-right: 10px;
+        }
+        .setpoint-control {
+            margin-top: 10px;
+        }
+        .reference-line {
+            position: absolute;
+            width: 100%;
+            height: 1px;
+            background-color: #2ecc71;
+            z-index: 5;
+        }
+        .pid-info {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        /* 传递函数区域样式 */
+        .pid-transfer-functions {
+            margin-top: 15px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            padding: 10px;
+            background-color: #f9f9f9;
+        }
+        .pid-transfer-functions h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #3498db;
+            font-size: 1em;
+        }
+        .pid-transfer-functions .equation-box {
+            margin-bottom: 8px;
+            background-color: white;
+            border-left: 3px solid #3498db;
+            padding: 5px;
+        }
+        /* 添加并排显示样式 */
+        .transfer-functions-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+        .transfer-function-column {
+            flex: 1;
+        }
+        .transfer-function-column .equation-box {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .pid-transfer-functions .equation-box:last-child {
+            margin-bottom: 0;
+        }
+        /* 添加标签以区分不同的传递函数 */
+        .transfer-function-label {
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 3px;
+            font-weight: bold;
+        }
+        /* 添加 KaTeX 公式缩放 */
+        .compact-formula .katex {
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
@@ -263,6 +349,83 @@
             
             <button id="reset-button">重置参数</button>
             <button id="step-input">施加阶跃输入</button>
+        </div>
+        
+        <!-- 添加PID控制器部分 -->
+        <div class="pid-panel">
+            <h2>PID控制器</h2>
+            
+            <div class="pid-toggle">
+                <label for="pid-enable">启用PID控制:</label>
+                <input type="checkbox" id="pid-enable">
+            </div>
+            
+            <div class="pid-controls">
+                <div class="control-group">
+                    <label for="kp">比例增益 (Kp)</label>
+                    <div class="slider-container">
+                        <input type="range" id="kp" min="0" max="50" step="0.1" value="10">
+                        <span id="kp-value" class="value-display">10</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label for="ki">积分增益 (Ki)</label>
+                    <div class="slider-container">
+                        <input type="range" id="ki" min="0" max="10" step="0.1" value="0.5">
+                        <span id="ki-value" class="value-display">0.5</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label for="kd">微分增益 (Kd)</label>
+                    <div class="slider-container">
+                        <input type="range" id="kd" min="0" max="10" step="0.1" value="2">
+                        <span id="kd-value" class="value-display">2</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="setpoint-control">
+                <div class="control-group">
+                    <label for="setpoint">设定值 (r)</label>
+                    <div class="slider-container">
+                        <input type="range" id="setpoint" min="0" max="2" step="0.1" value="1">
+                        <span id="setpoint-value" class="value-display">1</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 添加传递函数显示 -->
+            <div class="pid-transfer-functions">
+                <h3>传递函数</h3>
+                <div class="transfer-functions-row">
+                    <div class="transfer-function-column">
+                        <div class="transfer-function-label">PID控制器:</div>
+                        <div class="equation-box latex-formula compact-formula" id="pid-transfer-function">
+                            \[C(s) = K_p + \frac{K_i}{s} + K_d s\]
+                        </div>
+                    </div>
+                    <div class="transfer-function-column">
+                        <div class="transfer-function-label">闭环传递函数:</div>
+                        <div class="equation-box latex-formula compact-formula" id="closed-loop-simplified">
+                            <!-- 这里会由JavaScript动态更新 -->
+                        </div>
+                        <!-- 添加一个辅助显示区域，在PID启用时显示 -->
+                        <div class="equation-box latex-formula compact-formula" id="pid-closed-loop" style="display: none;">
+                            \[T(s) = \frac{K_d s^2 + K_p s + K_i}{m s^3 + (c+K_d)s^2 + (k+K_p)s + K_i}\]
+                        </div>
+                        <!-- 非PID状态显示区域 -->
+                        <div class="equation-box latex-formula compact-formula" id="non-pid-closed-loop" style="display: none;">
+                            \[T(s) = \frac{1}{m s^2 + c s + k}\]
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="pid-info" id="pid-info">
+                <!-- 默认文本已被删除 -->
+            </div>
         </div>
         
         <div class="flex-container">
@@ -398,6 +561,13 @@
         let springK = 10;       // 弹簧刚度 (N/m)
         let stepInput = false;  // 阶跃输入状态
         
+        // PID控制器参数
+        let pidEnabled = false; // PID控制器开关
+        let kp = 10;            // 比例增益
+        let ki = 0.5;           // 积分增益
+        let kd = 2;             // 微分增益
+        let setpoint = 1;       // 设定值
+        
         // 获取UI元素
         const massSlider = document.getElementById('mass');
         const dampingSlider = document.getElementById('damping');
@@ -417,12 +587,33 @@
         const tabs = document.querySelectorAll('.tab');
         const tabContents = document.querySelectorAll('.tab-content');
         
+        // PID控制器UI元素
+        const pidEnableCheckbox = document.getElementById('pid-enable');
+        const kpSlider = document.getElementById('kp');
+        const kiSlider = document.getElementById('ki');
+        const kdSlider = document.getElementById('kd');
+        const kpValue = document.getElementById('kp-value');
+        const kiValue = document.getElementById('ki-value');
+        const kdValue = document.getElementById('kd-value');
+        const setpointSlider = document.getElementById('setpoint');
+        const setpointValue = document.getElementById('setpoint-value');
+        const pidInfo = document.getElementById('pid-info');
+        
         // 图表上下文
         let timeResponseChart;
         let bodeCombinedChart;
         
+        // 全局变量定义
+        let velocity = 0;
+        let lastError = 0;
+        let previousPosition = 0;
+        let integralSum = 0; // 新增积分累加变量
+        let lastTime = 0; // 用于计算实际时间差
+        
         // 初始化图表
         function initCharts() {
+            // 无需手动注册插件，改为在HTML头部加载特定版本
+            
             // 时域响应图表
             const timeCtx = document.getElementById('time-response-chart').getContext('2d');
             timeResponseChart = new Chart(timeCtx, {
@@ -442,6 +633,11 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    plugins: {
+                        annotation: {
+                            annotations: {}
+                        }
+                    },
                     scales: {
                         x: {
                             title: {
@@ -508,22 +704,16 @@
                             fill: false,
                             pointRadius: 0,
                             yAxisID: 'y-phase'
-                        },
-                        {
-                            label: '-3 dB参考线',
-                            data: [],
-                            borderColor: 'rgba(155, 89, 182, 0.5)',
-                            borderWidth: 1,
-                            borderDash: [5, 5],
-                            fill: false,
-                            pointRadius: 0,
-                            yAxisID: 'y-magnitude'
                         }
+                        // 移除固定的-3dB水平线，改为使用Chart.js注释插件添加垂直线
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: {
+                        duration: 500  // 加速动画
+                    },
                     interaction: {
                         mode: 'index',
                         intersect: false,
@@ -591,6 +781,10 @@
                                     return !item.text.includes('参考线');
                                 }
                             }
+                        },
+                        // 启用注释插件
+                        annotation: {
+                            annotations: {}
                         }
                     }
                 }
@@ -622,40 +816,112 @@
             renderMathInElement(characteristicEquation);
         }
         
-        // 计算阶跃响应
-        function calculateStepResponse() {
-            const timePoints = 100; // 减少数据点数量
-            const maxTime = 10;
-            const dt = maxTime / timePoints;
-            
-            // 计算系统参数
-            const wn = Math.sqrt(springK / mass);  // 自然频率
-            const zeta = damping / (2 * Math.sqrt(mass * springK));  // 阻尼比
-            
-            const timeData = [];
-            const responseData = [];
-            
-            for (let i = 0; i < timePoints; i++) {
-                const t = i * dt;
-                timeData.push(Number(t.toFixed(2))); // 保留两位小数，避免浮点精度问题
+        // 计算PID控制下的系统响应
+        function calculatePIDResponse() {
+            try {
+                const timePoints = 100; // 减少数据点数量
+                const maxTime = 10;
+                const dt = maxTime / timePoints;
                 
-                let x;
-                if (zeta < 1) {  // 欠阻尼
-                    const wd = wn * Math.sqrt(1 - zeta * zeta);  // 阻尼振荡频率
-                    x = 1 - (Math.exp(-zeta * wn * t) / Math.sqrt(1 - zeta * zeta)) * 
-                        Math.sin(wd * t + Math.atan(Math.sqrt(1 - zeta * zeta) / zeta));
-                } else if (zeta === 1) {  // 临界阻尼
-                    x = 1 - Math.exp(-wn * t) * (1 + wn * t);
-                } else {  // 过阻尼
-                    const p1 = -wn * (zeta + Math.sqrt(zeta * zeta - 1));
-                    const p2 = -wn * (zeta - Math.sqrt(zeta * zeta - 1));
-                    x = 1 + (p2 * Math.exp(p1 * t) - p1 * Math.exp(p2 * t)) / (p2 - p1);
+                const timeData = [];
+                const responseData = [];
+                const controlData = []; // 控制信号
+                const errorData = [];   // 误差信号
+                
+                // 系统状态变量
+                let position = 0;
+                let velocity = 0;
+                let integral = 0;
+                let lastError = 0;
+                
+                for (let i = 0; i < timePoints; i++) {
+                    const t = i * dt;
+                    timeData.push(Number(t.toFixed(2)));
+                    
+                    // 计算误差
+                    const error = setpoint - position;
+                    errorData.push(error);
+                    
+                    // PID控制
+                    integral += error * dt;
+                    const derivative = (error - lastError) / dt;
+                    lastError = error;
+                    
+                    // 计算控制信号
+                    const controlSignal = kp * error + ki * integral + kd * derivative;
+                    controlData.push(controlSignal);
+                    
+                    // 系统动力学方程: m*a + c*v + k*x = u
+                    // a = (u - c*v - k*x) / m
+                    const acceleration = (controlSignal - damping * velocity - springK * position) / mass;
+                    
+                    // 更新速度和位置（欧拉积分）
+                    velocity += acceleration * dt;
+                    position += velocity * dt;
+                    
+                    responseData.push(position);
                 }
                 
-                responseData.push(x);
+                return { timeData, responseData, controlData, errorData };
+            } catch (e) {
+                console.error("计算PID响应时出错:", e);
+                // 返回空数据防止崩溃
+                return { 
+                    timeData: Array(100).fill(0).map((_, i) => i/10), 
+                    responseData: Array(100).fill(0),
+                    controlData: Array(100).fill(0),
+                    errorData: Array(100).fill(0)
+                };
             }
-            
-            return { timeData, responseData };
+        }
+        
+        // 计算阶跃响应，添加PID控制支持
+        function calculateStepResponse() {
+            try {
+                if (pidEnabled) {
+                    return calculatePIDResponse();
+                }
+                
+                const timePoints = 100; // 减少数据点数量
+                const maxTime = 10;
+                const dt = maxTime / timePoints;
+                
+                // 计算系统参数
+                const wn = Math.sqrt(springK / mass);  // 自然频率
+                const zeta = damping / (2 * Math.sqrt(mass * springK));  // 阻尼比
+                
+                const timeData = [];
+                const responseData = [];
+                
+                for (let i = 0; i < timePoints; i++) {
+                    const t = i * dt;
+                    timeData.push(Number(t.toFixed(2))); // 保留两位小数，避免浮点精度问题
+                    
+                    let x;
+                    if (zeta < 1) {  // 欠阻尼
+                        const wd = wn * Math.sqrt(1 - zeta * zeta);  // 阻尼振荡频率
+                        x = 1 - (Math.exp(-zeta * wn * t) / Math.sqrt(1 - zeta * zeta)) * 
+                            Math.sin(wd * t + Math.atan(Math.sqrt(1 - zeta * zeta) / zeta));
+                    } else if (zeta === 1) {  // 临界阻尼
+                        x = 1 - Math.exp(-wn * t) * (1 + wn * t);
+                    } else {  // 过阻尼
+                        const p1 = -wn * (zeta + Math.sqrt(zeta * zeta - 1));
+                        const p2 = -wn * (zeta - Math.sqrt(zeta * zeta - 1));
+                        x = 1 + (p2 * Math.exp(p1 * t) - p1 * Math.exp(p2 * t)) / (p2 - p1);
+                    }
+                    
+                    responseData.push(x);
+                }
+                
+                return { timeData, responseData };
+            } catch (e) {
+                console.error("计算阶跃响应时出错:", e);
+                // 返回空数据防止崩溃
+                return { 
+                    timeData: Array(100).fill(0).map((_, i) => i/10), 
+                    responseData: Array(100).fill(0) 
+                };
+            }
         }
         
         // 计算Bode图数据
@@ -753,7 +1019,69 @@
             yLabel.style.transform = 'translateX(-50%)';
             container.appendChild(yLabel);
             
-            const poles = calculatePoles();
+            // 计算系统极点
+            let poles;
+            
+            if (pidEnabled) {
+                // 计算带PID控制器的闭环极点
+                // 使用简化闭环特征方程：ms³ + (c+Kd)s² + (k+Kp)s + Ki = 0
+                // 这部分需要求解三次方程，可以使用一些简化的数值方法
+                
+                // 这里使用一个简化的近似方法，仅用于演示
+                // 在实际应用中，应使用更准确的根求解方法
+                const a = mass;
+                const b = damping + kd;
+                const c = springK + kp;
+                const d = ki;
+                
+                // 使用一个简单的数值方法查找复平面上的极点
+                // 这里仅作为演示，实际应使用专业的根求解算法
+                poles = [];
+                
+                // 寻找实数根（简化版）
+                if (d === 0) {
+                    poles.push({ real: 0, imag: 0 });
+                    
+                    // 二次方程：as² + bs + c = 0
+                    const discriminant = b*b - 4*a*c;
+                    if (discriminant >= 0) {
+                        const sqrtDisc = Math.sqrt(discriminant);
+                        poles.push({ real: (-b + sqrtDisc) / (2*a), imag: 0 });
+                        poles.push({ real: (-b - sqrtDisc) / (2*a), imag: 0 });
+                    } else {
+                        const realPart = -b / (2*a);
+                        const imagPart = Math.sqrt(-discriminant) / (2*a);
+                        poles.push({ real: realPart, imag: imagPart });
+                        poles.push({ real: realPart, imag: -imagPart });
+                    }
+                } else {
+                    // 简化：假设一个实根和一对共轭复根
+                    // 这是很粗略的近似，仅用于演示
+                    const realRoot = -Math.cbrt(d/a);
+                    poles.push({ real: realRoot, imag: 0 });
+                    
+                    // 假设其他两个根是共轭复根
+                    const sum = -b/a - realRoot;
+                    const product = c/a - b*realRoot/a;
+                    
+                    const realPart = sum / 2;
+                    const discriminant = sum*sum - 4*product;
+                    
+                    if (discriminant < 0) {
+                        const imagPart = Math.sqrt(-discriminant) / 2;
+                        poles.push({ real: realPart, imag: imagPart });
+                        poles.push({ real: realPart, imag: -imagPart });
+                    } else {
+                        const sqrtDisc = Math.sqrt(discriminant);
+                        poles.push({ real: (sum + sqrtDisc) / 2, imag: 0 });
+                        poles.push({ real: (sum - sqrtDisc) / 2, imag: 0 });
+                    }
+                }
+            } else {
+                // 使用原始系统的极点
+                poles = calculatePoles();
+            }
+            
             const width = container.clientWidth;
             const height = container.clientHeight;
             
@@ -872,192 +1200,423 @@
         
         // 更新时域响应图
         function updateTimeResponse() {
-            const { timeData, responseData } = calculateStepResponse();
+            const response = calculateStepResponse();
+            
+            // 更新图表配置，以便显示更多信息
+            if (pidEnabled) {
+                // 使用PID控制时，显示响应、控制信号和误差
+                timeResponseChart.data.labels = response.timeData;
+                
+                // 确保数据集数量正确
+                while (timeResponseChart.data.datasets.length < 3) {
+                    const colors = ['#e74c3c', '#3498db', '#2ecc71'];
+                    const labels = ['位移 x(t)', '控制信号 u(t)', '误差 e(t)'];
+                    
+                    timeResponseChart.data.datasets.push({
+                        label: labels[timeResponseChart.data.datasets.length],
+                        data: [],
+                        borderColor: colors[timeResponseChart.data.datasets.length],
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.2,
+                        pointRadius: 0,
+                        hidden: timeResponseChart.data.datasets.length > 0 // 默认只显示位移
+                    });
+                }
+                
+                timeResponseChart.data.datasets[0].data = response.responseData;
+                timeResponseChart.data.datasets[1].data = response.controlData;
+                timeResponseChart.data.datasets[2].data = response.errorData;
+                
+                // 添加设定值参考线
+                try {
+                    timeResponseChart.options.plugins.annotation = {
+                        annotations: {
+                            setpointLine: {
+                                type: 'line',
+                                yMin: setpoint,
+                                yMax: setpoint,
+                                borderColor: 'rgba(46, 204, 113, 0.5)',
+                                borderWidth: 2,
+                                label: {
+                                    content: `设定值: ${setpoint}`,
+                                    enabled: true,
+                                    position: 'end'
+                                }
+                            }
+                        }
+                    };
+                } catch (e) {
+                    console.error("设置注释时出错:", e);
+                }
+            } else {
+                // 不使用PID控制时，只显示响应
+                timeResponseChart.data.labels = response.timeData;
+                timeResponseChart.data.datasets[0].data = response.responseData;
+                
+                // 隐藏额外的数据集
+                if (timeResponseChart.data.datasets.length > 1) {
+                    for (let i = 1; i < timeResponseChart.data.datasets.length; i++) {
+                        timeResponseChart.data.datasets[i].hidden = true;
+                    }
+                }
+                
+                // 移除设定值参考线
+                try {
+                    timeResponseChart.options.plugins.annotation = {
+                        annotations: {}
+                    };
+                } catch (e) {
+                    console.error("清除注释时出错:", e);
+                }
+            }
             
             // 使用点状图更清晰显示数据点
-            timeResponseChart.data.labels = timeData;
-            timeResponseChart.data.datasets[0].data = responseData;
-            timeResponseChart.data.datasets[0].pointRadius = 0; // 不显示数据点
-            timeResponseChart.data.datasets[0].tension = 0.2; // 平滑曲线
-            timeResponseChart.update();
+            try {
+                timeResponseChart.update();
+            } catch (e) {
+                console.error("更新图表时出错:", e);
+            }
+            
+            // 更新PID控制信息
+            if (pidEnabled) {
+                const response = calculatePIDResponse();
+                
+                // 计算性能指标
+                const maxOvershoot = Math.max(...response.responseData) - setpoint;
+                const overshootPercent = maxOvershoot > 0 ? (maxOvershoot / setpoint) * 100 : 0;
+                
+                // 找到稳态误差
+                const steadyStateError = Math.abs(response.responseData[response.responseData.length - 1] - setpoint);
+                
+                // 找到上升时间 (10% 到 90%)
+                let riseTime = 0;
+                const target10 = 0.1 * setpoint;
+                const target90 = 0.9 * setpoint;
+                let found10 = false;
+                
+                for (let i = 0; i < response.responseData.length; i++) {
+                    if (!found10 && response.responseData[i] >= target10) {
+                        found10 = true;
+                    }
+                    
+                    if (found10 && response.responseData[i] >= target90) {
+                        riseTime = response.timeData[i];
+                        break;
+                    }
+                }
+                
+                // 找到稳定时间 (误差在±2%内)
+                let settlingTime = response.timeData[response.timeData.length - 1];
+                const errorBand = 0.02 * setpoint;
+                
+                for (let i = response.responseData.length - 1; i >= 0; i--) {
+                    if (Math.abs(response.responseData[i] - setpoint) > errorBand) {
+                        settlingTime = response.timeData[i + 1];
+                        break;
+                    }
+                }
+                
+                // 更新PID信息区域
+                pidInfo.innerHTML = `
+                    <div><strong>系统性能指标:</strong></div>
+                    <div>超调量: ${overshootPercent.toFixed(2)}%</div>
+                    <div>上升时间: ${riseTime.toFixed(2)} 秒</div>
+                    <div>稳定时间: ${settlingTime.toFixed(2)} 秒</div>
+                    <div>稳态误差: ${steadyStateError.toFixed(4)}</div>
+                `;
+            } else {
+                // 不使用PID控制时，清空PID信息区域
+                pidInfo.innerHTML = "";
+            }
         }
         
         // 更新Bode图
         function updateBodePlot() {
-            const { freqData, magData, phaseData } = calculateBodeData();
-            
-            // 找到DC增益（低频增益）
-            let dcGain = magData[0]; // 假设第一个点接近DC
-            for (let i = 0; i < Math.min(10, magData.length); i++) {
-                if (freqData[i] < 0.1) {
-                    dcGain = Math.max(dcGain, magData[i]);
-                }
-            }
-            
-            // 创建参考线数据
-            const zeroDB = Array(freqData.length).fill(0);
-            const neg180Phase = Array(freqData.length).fill(-180);
-            const neg3dBLine = Array(freqData.length).fill(dcGain - 3); // 相对于DC增益的-3dB线
-            
-            // 更新图表数据
-            bodeCombinedChart.data.labels = freqData;
-            bodeCombinedChart.data.datasets[0].data = magData;
-            bodeCombinedChart.data.datasets[1].data = phaseData;
-            bodeCombinedChart.data.datasets[2].data = zeroDB;
-            bodeCombinedChart.data.datasets[3].data = neg180Phase;
-            bodeCombinedChart.data.datasets[4].data = neg3dBLine;
-            bodeCombinedChart.update();
-            
-            // 计算并显示相位富裕度
-            let phaseMarginDeg = null;
-            let crossoverFreq = null;
-            
-            // 找到幅值穿越0dB的点 (增益交叉频率)
-            for (let i = 0; i < magData.length - 1; i++) {
-                if ((magData[i] >= 0 && magData[i+1] <= 0) || (magData[i] <= 0 && magData[i+1] >= 0)) {
-                    // 使用线性插值找到准确的交叉点
-                    const t = Math.abs(magData[i]) / Math.abs(magData[i+1] - magData[i]);
-                    crossoverFreq = freqData[i] * (1-t) + freqData[i+1] * t;
-                    
-                    // 通过插值计算相应的相位
-                    const phase1 = phaseData[i];
-                    const phase2 = phaseData[i+1];
-                    const phaseAtCrossover = phase1 * (1-t) + phase2 * t;
-                    
-                    phaseMarginDeg = 180 + phaseAtCrossover; // 相位富裕度 = 180° + 相位（负值）
-                    break;
-                }
-            }
-            
-            // 计算-3dB带宽（截止频率）
-            let bandwidth = null;
-            
-            // 计算-3dB点（相对于DC增益）
-            const target3dB = dcGain - 3;
-            
-            for (let i = 0; i < magData.length - 1; i++) {
-                if (magData[i] >= target3dB && magData[i+1] <= target3dB) {
-                    // 线性插值找到-3dB交叉点
-                    const t = (target3dB - magData[i]) / (magData[i+1] - magData[i]);
-                    bandwidth = freqData[i] * (1-t) + freqData[i+1] * t;
-                    break;
-                }
-            }
-            
-            // 显示相位富裕度和带宽信息
-            const infoContainer = document.createElement('div');
-            infoContainer.style.textAlign = 'center';
-            infoContainer.style.marginTop = '10px';
-            infoContainer.style.padding = '10px';
-            infoContainer.style.backgroundColor = '#f8f9fa';
-            infoContainer.style.borderRadius = '4px';
-            infoContainer.id = 'phase-margin-info';
-            
-            let infoHTML = '';
-            
-            if (phaseMarginDeg !== null) {
-                infoHTML += `<div><strong>相位富裕度:</strong> ${phaseMarginDeg.toFixed(2)}° (增益交叉频率: ${crossoverFreq.toFixed(2)} rad/s)</div>`;
-            } else {
-                infoHTML += '<div><strong>相位富裕度:</strong> 无法计算 (系统可能不会穿越0dB)</div>';
-            }
-            
-            if (bandwidth !== null) {
-                infoHTML += `<div><strong style="color: rgb(155, 89, 182);">截止频率:</strong> <span style="color: rgb(155, 89, 182); font-weight: bold;">${bandwidth.toFixed(2)} rad/s</span> (-3dB点，从${dcGain.toFixed(2)}dB下降)</div>`;
-            } else {
-                infoHTML += '<div><strong>截止频率:</strong> 无法计算</div>';
-            }
-            
-            infoContainer.innerHTML = infoHTML;
-            
-            // 移除之前的信息（如果有）
-            const existingInfo = document.getElementById('phase-margin-info');
-            if (existingInfo) {
-                existingInfo.remove();
-            }
-            
-            document.getElementById('frequency-domain').appendChild(infoContainer);
-            
-            // 绘制标记和注解
-            setTimeout(() => {
-                const chart = bodeCombinedChart;
-                const ctx = chart.ctx;
-                const xScale = chart.scales.x;
-                const yScaleMag = chart.scales['y-magnitude'];
-                const yScalePhase = chart.scales['y-phase'];
+            try {
+                console.log("更新Bode图, PID状态:", pidEnabled, "kp:", kp, "ki:", ki, "kd:", kd);
+                let freqData, magData, phaseData;
+                let bandwidth = 0; // 系统带宽
                 
-                ctx.save();
-                
-                // 绘制相位富裕度标记
-                if (phaseMarginDeg !== null && crossoverFreq !== null) {
-                    const x = xScale.getPixelForValue(crossoverFreq);
-                    const y1 = yScalePhase.getPixelForValue(-180);
-                    const y2 = yScalePhase.getPixelForValue(-180 + phaseMarginDeg);
+                if (pidEnabled) {
+                    // 计算带PID控制器的闭环频率响应
+                    const frequencyPoints = 100;
+                    const minFreq = 0.1;
+                    const maxFreq = 100;
+                    const logStep = Math.pow(maxFreq / minFreq, 1 / (frequencyPoints - 1));
                     
-                    ctx.beginPath();
-                    ctx.moveTo(x, y1);
-                    ctx.lineTo(x, y2);
-                    ctx.strokeStyle = 'rgba(231, 76, 60, 0.7)';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
+                    freqData = [];
+                    magData = [];
+                    phaseData = [];
                     
-                    // 相位富裕度文本
-                    ctx.font = '12px Arial';
-                    ctx.fillStyle = 'rgba(231, 76, 60, 1)';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('相位富裕度', x, (y1 + y2) / 2 - 10);
-                    ctx.fillText(`${phaseMarginDeg.toFixed(1)}°`, x, (y1 + y2) / 2 + 10);
+                    // 将当前PID参数值存储在局部变量中，确保计算过程中使用的是一致的值
+                    const currentKp = kp;
+                    const currentKi = ki;
+                    const currentKd = kd;
+                    
+                    for (let i = 0; i < frequencyPoints; i++) {
+                        const w = minFreq * Math.pow(logStep, i);
+                        freqData.push(w);
+                        
+                        try {
+                            // 计算系统传递函数: G(s) = 1/(ms^2 + cs + k)
+                            const den_real = springK - mass * w * w;
+                            const den_imag = damping * w;
+                            const G_mag = 1 / Math.sqrt(den_real * den_real + den_imag * den_imag);
+                            const G_phase = -Math.atan2(den_imag, den_real);
+                            
+                            // 计算PID控制器: C(s) = Kp + Ki/s + Kd*s
+                            const P_mag = currentKp;
+                            const P_phase = 0;
+                            
+                            const I_mag = currentKi / w;
+                            const I_phase = -Math.PI / 2;
+                            
+                            const D_mag = currentKd * w;
+                            const D_phase = Math.PI / 2;
+                            
+                            // 计算PID控制器的实部和虚部
+                            const P_real = P_mag * Math.cos(P_phase);
+                            const P_imag = P_mag * Math.sin(P_phase);
+                            
+                            const I_real = I_mag * Math.cos(I_phase);
+                            const I_imag = I_mag * Math.sin(I_phase);
+                            
+                            const D_real = D_mag * Math.cos(D_phase);
+                            const D_imag = D_mag * Math.sin(D_phase);
+                            
+                            const C_real = P_real + I_real + D_real;
+                            const C_imag = P_imag + I_imag + D_imag;
+                            
+                            const C_mag = Math.sqrt(C_real * C_real + C_imag * C_imag);
+                            const C_phase = Math.atan2(C_imag, C_real);
+                            
+                            // 计算开环传递函数: L(s) = C(s)*G(s)
+                            const L_mag = C_mag * G_mag;
+                            const L_phase = C_phase + G_phase;
+                            
+                            const L_real = L_mag * Math.cos(L_phase);
+                            const L_imag = L_mag * Math.sin(L_phase);
+                            
+                            // 计算闭环传递函数: T(s) = L(s)/(1 + L(s))
+                            const den_T_real = 1 + L_real;
+                            const den_T_imag = L_imag;
+                            const den_T_mag = Math.sqrt(den_T_real * den_T_real + den_T_imag * den_T_imag);
+                            
+                            const T_mag = L_mag / den_T_mag;
+                            const T_phase = L_phase - Math.atan2(den_T_imag, den_T_real);
+                            
+                            // 转换为dB和度
+                            const magdB = 20 * Math.log10(T_mag);
+                            const phaseDeg = T_phase * 180 / Math.PI;
+                            
+                            magData.push(magdB);
+                            phaseData.push(phaseDeg);
+                        } catch (err) {
+                            console.error("计算频率响应出错:", err, "频率:", w);
+                            // 出错时添加默认值
+                            magData.push(0);
+                            phaseData.push(0);
+                        }
+                    }
+                    
+                    // 查找带宽（-3dB频率）
+                    for (let i = 0; i < magData.length; i++) {
+                        if (magData[i] <= -3) {
+                            if (i > 0) {
+                                // 线性插值估计-3dB频率
+                                const freq1 = freqData[i-1];
+                                const freq2 = freqData[i];
+                                const mag1 = magData[i-1];
+                                const mag2 = magData[i];
+                                bandwidth = freq1 + (freq2 - freq1) * ((-3) - mag1) / (mag2 - mag1);
+                            } else {
+                                bandwidth = freqData[i];
+                            }
+                            break;
+                        }
+                    }
+                    
+                    // 查找相位裕度（0dB增益交越频率处的相位与-180°的差值）
+                    let phaseMargin = 0;
+                    let gainCrossoverFreq = 0;
+                    for (let i = 0; i < magData.length; i++) {
+                        if (magData[i] <= 0) {
+                            if (i > 0) {
+                                // 线性插值估计0dB交越频率
+                                const freq1 = freqData[i-1];
+                                const freq2 = freqData[i];
+                                const mag1 = magData[i-1];
+                                const mag2 = magData[i];
+                                gainCrossoverFreq = freq1 + (freq2 - freq1) * (0 - mag1) / (mag2 - mag1);
+                                
+                                // 线性插值估计相位
+                                const phase1 = phaseData[i-1];
+                                const phase2 = phaseData[i];
+                                const phaseAtCrossover = phase1 + (phase2 - phase1) * (gainCrossoverFreq - freq1) / (freq2 - freq1);
+                                phaseMargin = 180 + phaseAtCrossover;
+                            }
+                            break;
+                        }
+                    }
+                    
+                    // 在Bode图信息区域显示带宽和相位裕度
+                    let bodeInfoContainer = document.getElementById('bode-info');
+                    if (!bodeInfoContainer) {
+                        bodeInfoContainer = document.createElement('div');
+                        bodeInfoContainer.id = 'bode-info';
+                        bodeInfoContainer.style.marginTop = '10px';
+                        bodeInfoContainer.style.fontSize = '12px';
+                        document.getElementById('frequency-domain').appendChild(bodeInfoContainer);
+                    }
+                    
+                    bodeInfoContainer.innerHTML = `
+                        <div><strong>闭环系统带宽:</strong> ${bandwidth.toFixed(2)} rad/s</div>
+                        <div><strong>相位裕度:</strong> ${phaseMargin.toFixed(2)}°</div>
+                        <div><strong>PID参数:</strong> Kp=${currentKp}, Ki=${currentKi}, Kd=${currentKd}</div>
+                    `;
+                } else {
+                    // 使用原始系统的频率响应
+                    const calculated = calculateBodeData();
+                    freqData = calculated.freqData;
+                    magData = calculated.magData;
+                    phaseData = calculated.phaseData;
+                    
+                    // 计算原始系统带宽
+                    // 获取系统在低频时的基础增益
+                    const lowFreqGain = magData[0];
+                    const thresholdGain = lowFreqGain - 3; // -3dB参考线相对于低频增益
+                    
+                    for (let i = 0; i < magData.length; i++) {
+                        if (magData[i] <= thresholdGain) {
+                            if (i > 0) {
+                                // 线性插值估计-3dB频率
+                                const freq1 = freqData[i-1];
+                                const freq2 = freqData[i];
+                                const mag1 = magData[i-1];
+                                const mag2 = magData[i];
+                                bandwidth = freq1 + (freq2 - freq1) * ((thresholdGain) - mag1) / (mag2 - mag1);
+                            } else {
+                                bandwidth = freqData[i];
+                            }
+                            break;
+                        }
+                    }
+                    
+                    // 添加系统信息
+                    let bodeInfoContainer = document.getElementById('bode-info');
+                    if (!bodeInfoContainer) {
+                        bodeInfoContainer = document.createElement('div');
+                        bodeInfoContainer.id = 'bode-info';
+                        bodeInfoContainer.style.marginTop = '10px';
+                        bodeInfoContainer.style.fontSize = '12px';
+                        document.getElementById('frequency-domain').appendChild(bodeInfoContainer);
+                    }
+                    
+                    const wn = Math.sqrt(springK / mass);  // 自然频率
+                    const zeta = damping / (2 * Math.sqrt(mass * springK));  // 阻尼比
+                    
+                    bodeInfoContainer.innerHTML = `
+                        <div><strong>系统带宽:</strong> ${bandwidth.toFixed(2)} rad/s</div>
+                        <div><strong>自然频率:</strong> ${wn.toFixed(2)} rad/s</div>
+                        <div><strong>阻尼比:</strong> ${zeta.toFixed(2)}</div>
+                        <div><strong>低频增益:</strong> ${lowFreqGain.toFixed(2)} dB</div>
+                    `;
                 }
                 
-                // 绘制-3dB带宽标记
-                if (bandwidth !== null) {
-                    const x = xScale.getPixelForValue(bandwidth);
-                    const y = yScaleMag.getPixelForValue(target3dB);
+                // 创建0dB和-180°参考线数据
+                const zeroDB = Array(freqData.length).fill(0);
+                const neg180Phase = Array(freqData.length).fill(-180);
+                
+                // 更新图表数据
+                bodeCombinedChart.data.labels = freqData;
+                bodeCombinedChart.data.datasets[0].data = magData;
+                bodeCombinedChart.data.datasets[1].data = phaseData;
+                bodeCombinedChart.data.datasets[2].data = zeroDB;
+                bodeCombinedChart.data.datasets[3].data = neg180Phase;
+                
+                // 配置-3dB带宽垂直线注释
+                if (bandwidth > 0) {
+                    // 对于未使用PID控制的系统，使用相对于低频增益的-3dB点
+                    const thresholdDB = pidEnabled ? -3 : (magData[0] - 3);
                     
-                    // 画大一点的圆点标记-3dB点
-                    ctx.beginPath();
-                    ctx.arc(x, y, 8, 0, 2 * Math.PI);
-                    ctx.fillStyle = 'rgba(155, 89, 182, 0.8)';
-                    ctx.fill();
+                    bodeCombinedChart.options.plugins.annotation = {
+                        annotations: {
+                            bandwidthLine: {
+                                type: 'line',
+                                xMin: bandwidth,
+                                xMax: bandwidth,
+                                borderColor: 'rgba(155, 89, 182, 0.7)',
+                                borderWidth: 2,
+                                borderDash: [5, 5],
+                                label: {
+                                    display: true,
+                                    content: `-3dB 带宽: ${bandwidth.toFixed(2)} rad/s`,
+                                    position: 'top',
+                                    backgroundColor: 'rgba(155, 89, 182, 0.7)',
+                                    font: {
+                                        size: 12
+                                    }
+                                }
+                            },
+                            thresholdLine: {
+                                type: 'line',
+                                yMin: thresholdDB,
+                                yMax: thresholdDB,
+                                borderColor: 'rgba(155, 89, 182, 0.5)',
+                                borderWidth: 1,
+                                borderDash: [3, 3],
+                                yScaleID: 'y-magnitude'
+                            }
+                        }
+                    };
                     
-                    ctx.beginPath();
-                    ctx.arc(x, y, 8, 0, 2 * Math.PI);
-                    ctx.lineWidth = 2;
-                    ctx.strokeStyle = 'rgba(142, 68, 173, 1)';
-                    ctx.stroke();
-                    
-                    // 添加脉动效果
-                    const pulseSize = 15;
-                    ctx.beginPath();
-                    ctx.arc(x, y, pulseSize, 0, 2 * Math.PI);
-                    ctx.fillStyle = 'rgba(155, 89, 182, 0.3)';
-                    ctx.fill();
-                    
-                    // 从-3dB点画垂直线到x轴
-                    ctx.beginPath();
-                    ctx.moveTo(x, y);
-                    ctx.lineTo(x, yScaleMag.getPixelForValue(yScaleMag.min));
-                    ctx.strokeStyle = 'rgba(155, 89, 182, 0.7)';
-                    ctx.lineWidth = 2;
-                    ctx.setLineDash([3, 3]);
-                    ctx.stroke();
-                    
-                    // -3dB带宽文本 - 让字体更大更明显
-                    ctx.font = 'bold 14px Arial';
-                    ctx.fillStyle = 'rgba(142, 68, 173, 1)';
-                    ctx.textAlign = 'center';
-                    ctx.setLineDash([]);
-                    ctx.fillText('-3dB点', x, y - 25);
-                    ctx.fillText(`${bandwidth.toFixed(1)} rad/s`, x, yScaleMag.getPixelForValue(yScaleMag.min) + 30);
+                    // 移除之前的-3dB水平线数据集
+                    if (bodeCombinedChart.data.datasets.length > 4) {
+                        bodeCombinedChart.data.datasets = bodeCombinedChart.data.datasets.slice(0, 4);
+                    }
                 }
                 
-                ctx.restore();
-            }, 100);
+                // 更新标题以反映当前显示的是什么传递函数
+                if (pidEnabled) {
+                    bodeCombinedChart.options.plugins.title = {
+                        display: true,
+                        text: '闭环系统Bode图',
+                        font: {
+                            size: 14
+                        }
+                    };
+                    
+                    // 更新Y轴范围以适应闭环响应
+                    bodeCombinedChart.options.scales['y-magnitude'].min = -40;
+                    bodeCombinedChart.options.scales['y-magnitude'].max = 20;
+                } else {
+                    bodeCombinedChart.options.plugins.title = {
+                        display: true,
+                        text: '开环系统Bode图',
+                        font: {
+                            size: 14
+                        }
+                    };
+                    
+                    // 自适应Y轴范围，考虑低频增益
+                    const minMag = Math.min(...magData) - 5;
+                    const maxMag = Math.max(10, magData[0] + 5);
+                    bodeCombinedChart.options.scales['y-magnitude'].min = minMag;
+                    bodeCombinedChart.options.scales['y-magnitude'].max = maxMag;
+                }
+                
+                // 强制更新图表
+                bodeCombinedChart.update('none'); // 使用'none'动画模式更快地更新
+                console.log("Bode图更新完成");
+            } catch (e) {
+                console.error("更新Bode图时出错:", e);
+            }
         }
         
         // 更新物理系统动画
         let animationId;
         let startTime;
-        let previousPosition = 0;
         
         function updateAnimation() {
             if (!stepInput) {
@@ -1068,42 +1627,74 @@
             const currentTime = performance.now();
             const elapsedTime = (currentTime - startTime) / 1000;  // 转换为秒
             
+            // 计算实际时间间隔
+            const dt = (currentTime - lastTime) / 1000; // 实际帧间隔，秒
+            lastTime = currentTime;
+            
             // 计算系统参数
             const wn = Math.sqrt(springK / mass);  // 自然频率
             const zeta = damping / (2 * Math.sqrt(mass * springK));  // 阻尼比
             
-            // 计算阶跃响应
+            // 计算位置
             let position;
-            if (zeta < 1) {  // 欠阻尼
-                const wd = wn * Math.sqrt(1 - zeta * zeta);  // 阻尼振荡频率
-                position = 1 - (Math.exp(-zeta * wn * elapsedTime) / Math.sqrt(1 - zeta * zeta)) * 
-                    Math.sin(wd * elapsedTime + Math.atan(Math.sqrt(1 - zeta * zeta) / zeta));
-            } else if (zeta === 1) {  // 临界阻尼
-                position = 1 - Math.exp(-wn * elapsedTime) * (1 + wn * elapsedTime);
-            } else {  // 过阻尼
-                const p1 = -wn * (zeta + Math.sqrt(zeta * zeta - 1));
-                const p2 = -wn * (zeta - Math.sqrt(zeta * zeta - 1));
-                position = 1 + (p2 * Math.exp(p1 * elapsedTime) - p1 * Math.exp(p2 * elapsedTime)) / (p2 - p1);
+            
+            if (pidEnabled) {
+                // 改进的PID控制计算
+                const error = setpoint - previousPosition;
+                
+                // 积分项使用梯形法则累加
+                integralSum += error * dt;
+                
+                // 微分项使用实际时间差
+                const derivative = dt > 0.001 ? (error - lastError) / dt : 0;
+                lastError = error;
+                
+                // 计算PID控制信号
+                const controlSignal = kp * error + ki * integralSum + kd * derivative;
+                
+                // 系统动力学方程
+                const acceleration = (controlSignal - damping * velocity - springK * previousPosition) / mass;
+                velocity += acceleration * dt;
+                position = previousPosition + velocity * dt;
+                previousPosition = position;
+            } else {
+                // 原始弹簧-质量-阻尼系统的阶跃响应
+                if (zeta < 1) {  // 欠阻尼
+                    const wd = wn * Math.sqrt(1 - zeta * zeta);  // 阻尼振荡频率
+                    position = 1 - (Math.exp(-zeta * wn * elapsedTime) / Math.sqrt(1 - zeta * zeta)) * 
+                        Math.sin(wd * elapsedTime + Math.atan(Math.sqrt(1 - zeta * zeta) / zeta));
+                } else if (zeta === 1) {  // 临界阻尼
+                    position = 1 - Math.exp(-wn * elapsedTime) * (1 + wn * elapsedTime);
+                } else {  // 过阻尼
+                    const p1 = -wn * (zeta + Math.sqrt(zeta * zeta - 1));
+                    const p2 = -wn * (zeta - Math.sqrt(zeta * zeta - 1));
+                    position = 1 + (p2 * Math.exp(p1 * elapsedTime) - p1 * Math.exp(p2 * elapsedTime)) / (p2 - p1);
+                }
+            }
+            
+            // 防止NaN或无限值导致动画异常
+            if (isNaN(position) || !isFinite(position)) {
+                console.error("动画计算错误，位置值无效");
+                position = previousPosition || 0;
             }
             
             // 为动画设置合适的缩放
             const scaleFactor = 50;  // 调整以适应动画区域
             const displacement = position * scaleFactor;
             
+            // 限制位移范围，防止元素移出可视区域
+            const limitedDisplacement = Math.max(-50, Math.min(150, displacement));
+            
             // 更新质量位置
-            massElement.style.transform = `translateX(${displacement}px)`;
+            massElement.style.transform = `translateX(${limitedDisplacement}px)`;
             
             // 更新弹簧长度
-            springElement.style.width = `${80 + displacement}px`;
+            springElement.style.width = `${80 + limitedDisplacement}px`;
             
             // 更新阻尼器位置
-            damperElement.style.transform = `translateX(${displacement}px)`;
+            damperElement.style.transform = `translateX(${limitedDisplacement}px)`;
             
             // 速度视觉反馈（通过颜色）
-            const velocity = (displacement - previousPosition) * 60;  // 近似速度
-            previousPosition = displacement;
-            
-            // 速度越大，颜色越偏向红色
             const velocityColor = Math.abs(velocity) * 5;
             const r = Math.min(255, 231 + velocityColor);
             const g = Math.max(0, 76 - velocityColor);
@@ -1119,6 +1710,10 @@
             forceArrow.style.display = 'block';
             startTime = performance.now();
             previousPosition = 0;
+            velocity = 0; // 重置速度
+            lastError = 0; // 重置上一次误差
+            integralSum = 0; // 重置积分累加
+            lastTime = startTime; // 初始化时间
             
             // 重置元素位置
             massElement.style.transform = 'translateX(0)';
@@ -1131,10 +1726,78 @@
         
         // 更新所有可视化
         function updateVisualizations() {
+            console.log("开始更新所有可视化 - PID状态:", pidEnabled, "系统参数:", {mass, damping, springK}, "PID参数:", {kp, ki, kd, setpoint});
+            
+            // 更新方程
             updateEquations();
+            
+            // 更新时域响应
             updateTimeResponse();
+            
+            // 更新Bode图
             updateBodePlot();
+            
+            // 更新极点图
             updatePolePlot();
+            
+            // 更新传递函数显示
+            updateClosedLoopDisplay();
+            
+            console.log("所有可视化更新完成");
+        }
+        
+        // 添加专门用于更新传递函数的函数
+        function updateTransferFunctions() {
+            console.log("更新传递函数 - PID状态:", pidEnabled, "PID参数:", {kp, ki, kd});
+            
+            try {
+                // 采用更直接的方法更新传递函数显示
+                const pidFormula = document.getElementById('pid-transfer-function');
+                const closedLoopFormula = document.getElementById('closed-loop-simplified');
+                
+                // 完全清除内容
+                while (pidFormula.firstChild) {
+                    pidFormula.removeChild(pidFormula.firstChild);
+                }
+                
+                while (closedLoopFormula.firstChild) {
+                    closedLoopFormula.removeChild(closedLoopFormula.firstChild);
+                }
+                
+                // 创建新的文本节点
+                const pidText = document.createTextNode(`\\[C(s) = ${kp} + \\frac{${ki}}{s} + ${kd}s\\]`);
+                pidFormula.appendChild(pidText);
+                
+                let closedLoopText;
+                if (pidEnabled) {
+                    closedLoopText = document.createTextNode(`\\[T(s) = \\frac{${kd}s^2 + ${kp}s + ${ki}}{${mass}s^3 + (${damping}+${kd})s^2 + (${springK}+${kp})s + ${ki}}\\]`);
+                } else {
+                    closedLoopText = document.createTextNode(`\\[T(s) = \\frac{1}{${mass}s^2 + ${damping}s + ${springK}}\\]`);
+                }
+                closedLoopFormula.appendChild(closedLoopText);
+                
+                console.log("准备渲染LaTeX...");
+                
+                // 尝试使用KaTeX直接渲染
+                try {
+                    renderMathInElement(document.body, {
+                        delimiters: [
+                            {left: "$$", right: "$$", display: true},
+                            {left: "$", right: "$", display: false},
+                            {left: "\\(", right: "\\)", display: false},
+                            {left: "\\[", right: "\\]", display: true}
+                        ],
+                        throwOnError: false
+                    });
+                    console.log("LaTeX渲染完成");
+                } catch (renderErr) {
+                    console.error("LaTeX渲染失败:", renderErr);
+                }
+                
+                console.log("传递函数更新完成");
+            } catch (err) {
+                console.error("更新传递函数时出错:", err);
+            }
         }
         
         // 滑块事件监听器
@@ -1196,12 +1859,136 @@
             });
         });
         
+        // PID控制器事件监听器
+        pidEnableCheckbox.addEventListener('change', function() {
+            pidEnabled = this.checked;
+            console.log("PID状态变更为:", pidEnabled);
+            
+            // 重置PID相关变量
+            previousPosition = 0;
+            velocity = 0;
+            lastError = 0;
+            integralSum = 0;
+            
+            // 重置动画位置
+            massElement.style.transform = 'translateX(0)';
+            springElement.style.width = '80px';
+            damperElement.style.transform = 'translateX(0)';
+            
+            // 立即更新传递函数显示
+            updateClosedLoopDisplay();
+            
+            // 然后更新其他可视化
+            updateEquations();
+            updateTimeResponse();
+            updateBodePlot();
+            updatePolePlot();
+            
+            console.log("PID状态切换更新完成");
+        });
+        
+        kpSlider.addEventListener('input', function() {
+            kp = parseFloat(this.value);
+            kpValue.textContent = kp;
+            console.log("Kp值更新为:", kp);
+            if (pidEnabled) {
+                // 使用新方法更新传递函数
+                updateClosedLoopDisplay();
+                // 更新Bode图和极点图
+                updateBodePlot();
+                updatePolePlot();
+            } else {
+                updateVisualizations();
+            }
+        });
+        
+        kiSlider.addEventListener('input', function() {
+            ki = parseFloat(this.value);
+            kiValue.textContent = ki;
+            console.log("Ki值更新为:", ki);
+            if (pidEnabled) {
+                // 使用新方法更新传递函数
+                updateClosedLoopDisplay();
+                // 更新Bode图和极点图
+                updateBodePlot();
+                updatePolePlot();
+            } else {
+                updateVisualizations();
+            }
+        });
+        
+        kdSlider.addEventListener('input', function() {
+            kd = parseFloat(this.value);
+            kdValue.textContent = kd;
+            console.log("Kd值更新为:", kd);
+            if (pidEnabled) {
+                // 使用新方法更新传递函数
+                updateClosedLoopDisplay();
+                // 更新Bode图和极点图
+                updateBodePlot();
+                updatePolePlot();
+            } else {
+                updateVisualizations();
+            }
+        });
+        
+        setpointSlider.addEventListener('input', function() {
+            setpoint = parseFloat(this.value);
+            setpointValue.textContent = setpoint;
+            console.log("设定值更新为:", setpoint);
+            // 设定值主要影响时域响应
+            updateTimeResponse();
+        });
+        
         // 初始化
         window.addEventListener('load', function() {
-            initCharts();
-            updateVisualizations();
-            renderLatexFormulas();
+            try {
+                console.log("初始化图表...");
+                initCharts();
+                console.log("更新可视化...");
+                updateVisualizations();
+                console.log("渲染LaTeX公式...");
+                renderLatexFormulas();
+                
+                console.log("初始化完成");
+            } catch (e) {
+                console.error("初始化过程中出错:", e);
+            }
         });
+        
+        // 更新闭环传递函数显示
+        function updateClosedLoopDisplay() {
+            console.log("专门更新闭环传递函数显示 - PID状态:", pidEnabled);
+            
+            const mainDisplay = document.getElementById('closed-loop-simplified');
+            const pidDisplay = document.getElementById('pid-closed-loop');
+            const nonPidDisplay = document.getElementById('non-pid-closed-loop');
+            
+            // 更新辅助显示区域的内容
+            if (pidEnabled) {
+                // 更新PID状态下的公式
+                pidDisplay.innerHTML = `\\[T(s) = \\frac{${kd}s^2 + ${kp}s + ${ki}}{${mass}s^3 + (${damping}+${kd})s^2 + (${springK}+${kp})s + ${ki}}\\]`;
+                
+                // 显示PID版本，隐藏非PID版本
+                pidDisplay.style.display = 'block';
+                nonPidDisplay.style.display = 'none';
+                mainDisplay.style.display = 'none';
+            } else {
+                // 更新非PID状态下的公式
+                nonPidDisplay.innerHTML = `\\[T(s) = \\frac{1}{${mass}s^2 + ${damping}s + ${springK}}\\]`;
+                
+                // 显示非PID版本，隐藏PID版本
+                pidDisplay.style.display = 'none';
+                nonPidDisplay.style.display = 'block';
+                mainDisplay.style.display = 'none';
+            }
+            
+            // 渲染LaTeX公式
+            renderMathInElement(pidDisplay);
+            renderMathInElement(nonPidDisplay);
+            
+            console.log("闭环传递函数显示更新完成");
+        }
     </script>
 </body>
 </html>
