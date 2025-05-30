@@ -1317,14 +1317,14 @@
                     }
                 }
                 
-                // 更新PID信息区域
-                pidInfo.innerHTML = `
-                    <div><strong>系统性能指标:</strong></div>
-                    <div>超调量: ${overshootPercent.toFixed(2)}%</div>
-                    <div>上升时间: ${riseTime.toFixed(2)} 秒</div>
-                    <div>稳定时间: ${settlingTime.toFixed(2)} 秒</div>
-                    <div>稳态误差: ${steadyStateError.toFixed(4)}</div>
-                `;
+                // // 更新PID信息区域
+                // pidInfo.innerHTML = `
+                //     <div><strong>系统性能指标:</strong></div>
+                //     <div>超调量: ${overshootPercent.toFixed(2)}%</div>
+                //     <div>上升时间: ${riseTime.toFixed(2)} 秒</div>
+                //     <div>稳定时间: ${settlingTime.toFixed(2)} 秒</div>
+                //     <div>稳态误差: ${steadyStateError.toFixed(4)}</div>
+                // `;
             } else {
                 // 不使用PID控制时，清空PID信息区域
                 pidInfo.innerHTML = "";
@@ -1334,11 +1334,30 @@
         // 更新Bode图
         function updateBodePlot() {
             try {
-                console.log("更新Bode图, PID状态:", pidEnabled, "kp:", kp, "ki:", ki, "kd:", kd);
+                console.log("更新Bode图, PID状态:", pidEnabled, "PID参数:", {kp, ki, kd});
                 let freqData, magData, phaseData;
                 let bandwidth = 0; // 系统带宽
                 
-                if (pidEnabled) {
+                // 创建一个明确的本地副本，避免任何潜在的变量访问问题
+                const currentMass = mass;
+                const currentDamping = damping;
+                const currentSpringK = springK;
+                const currentKp = kp;
+                const currentKi = ki;
+                const currentKd = kd;
+                const isPIDEnabled = pidEnabled;
+                
+                console.log("计算频率响应使用参数:", {
+                    mass: currentMass, 
+                    damping: currentDamping, 
+                    springK: currentSpringK,
+                    isPIDEnabled: isPIDEnabled,
+                    kp: currentKp,
+                    ki: currentKi,
+                    kd: currentKd
+                });
+                
+                if (isPIDEnabled) {
                     // 计算带PID控制器的闭环频率响应
                     const frequencyPoints = 100;
                     const minFreq = 0.1;
@@ -1349,19 +1368,14 @@
                     magData = [];
                     phaseData = [];
                     
-                    // 将当前PID参数值存储在局部变量中，确保计算过程中使用的是一致的值
-                    const currentKp = kp;
-                    const currentKi = ki;
-                    const currentKd = kd;
-                    
                     for (let i = 0; i < frequencyPoints; i++) {
                         const w = minFreq * Math.pow(logStep, i);
                         freqData.push(w);
                         
                         try {
                             // 计算系统传递函数: G(s) = 1/(ms^2 + cs + k)
-                            const den_real = springK - mass * w * w;
-                            const den_imag = damping * w;
+                            const den_real = currentSpringK - currentMass * w * w;
+                            const den_imag = currentDamping * w;
                             const G_mag = 1 / Math.sqrt(den_real * den_real + den_imag * den_imag);
                             const G_phase = -Math.atan2(den_imag, den_real);
                             
@@ -1513,8 +1527,8 @@
                         document.getElementById('frequency-domain').appendChild(bodeInfoContainer);
                     }
                     
-                    const wn = Math.sqrt(springK / mass);  // 自然频率
-                    const zeta = damping / (2 * Math.sqrt(mass * springK));  // 阻尼比
+                    const wn = Math.sqrt(currentSpringK / currentMass);  // 自然频率
+                    const zeta = currentDamping / (2 * Math.sqrt(currentMass * currentSpringK));  // 阻尼比
                     
                     bodeInfoContainer.innerHTML = `
                         <div><strong>系统带宽:</strong> ${bandwidth.toFixed(2)} rad/s</div>
@@ -1538,7 +1552,7 @@
                 // 配置-3dB带宽垂直线注释
                 if (bandwidth > 0) {
                     // 对于未使用PID控制的系统，使用相对于低频增益的-3dB点
-                    const thresholdDB = pidEnabled ? -3 : (magData[0] - 3);
+                    const thresholdDB = isPIDEnabled ? -3 : (magData[0] - 3);
                     
                     bodeCombinedChart.options.plugins.annotation = {
                         annotations: {
@@ -1875,16 +1889,26 @@
             springElement.style.width = '80px';
             damperElement.style.transform = 'translateX(0)';
             
-            // 立即更新传递函数显示
+            // 先更新传递函数显示
             updateClosedLoopDisplay();
             
-            // 然后更新其他可视化
-            updateEquations();
-            updateTimeResponse();
+            // 强制立即更新Bode图和极点图
+            console.log("强制立即更新Bode图");
             updateBodePlot();
             updatePolePlot();
             
+            // 再更新其他可视化
+            updateEquations();
+            updateTimeResponse();
+            
             console.log("PID状态切换更新完成");
+            
+            // 为确保所有图表完全更新，再次延迟更新
+            setTimeout(() => {
+                console.log("额外强制更新Bode图");
+                updateBodePlot();
+                bodeCombinedChart.update('none');
+            }, 100);
         });
         
         kpSlider.addEventListener('input', function() {
@@ -1892,11 +1916,14 @@
             kpValue.textContent = kp;
             console.log("Kp值更新为:", kp);
             if (pidEnabled) {
-                // 使用新方法更新传递函数
+                // 先更新传递函数显示
                 updateClosedLoopDisplay();
-                // 更新Bode图和极点图
+                // 立即强制更新Bode图和极点图
                 updateBodePlot();
+                bodeCombinedChart.update('none'); // 强制更新图表
                 updatePolePlot();
+                // 更新时域响应图
+                updateTimeResponse();
             } else {
                 updateVisualizations();
             }
@@ -1907,11 +1934,14 @@
             kiValue.textContent = ki;
             console.log("Ki值更新为:", ki);
             if (pidEnabled) {
-                // 使用新方法更新传递函数
+                // 先更新传递函数显示
                 updateClosedLoopDisplay();
-                // 更新Bode图和极点图
+                // 立即强制更新Bode图和极点图
                 updateBodePlot();
+                bodeCombinedChart.update('none'); // 强制更新图表
                 updatePolePlot();
+                // 更新时域响应图
+                updateTimeResponse();
             } else {
                 updateVisualizations();
             }
@@ -1922,11 +1952,14 @@
             kdValue.textContent = kd;
             console.log("Kd值更新为:", kd);
             if (pidEnabled) {
-                // 使用新方法更新传递函数
+                // 先更新传递函数显示
                 updateClosedLoopDisplay();
-                // 更新Bode图和极点图
+                // 立即强制更新Bode图和极点图
                 updateBodePlot();
+                bodeCombinedChart.update('none'); // 强制更新图表
                 updatePolePlot();
+                // 更新时域响应图
+                updateTimeResponse();
             } else {
                 updateVisualizations();
             }
@@ -1963,6 +1996,10 @@
             const mainDisplay = document.getElementById('closed-loop-simplified');
             const pidDisplay = document.getElementById('pid-closed-loop');
             const nonPidDisplay = document.getElementById('non-pid-closed-loop');
+            const pidTransferFunction = document.getElementById('pid-transfer-function');
+            
+            // 更新PID控制器传递函数
+            pidTransferFunction.innerHTML = `\\[C(s) = ${kp} + \\frac{${ki}}{s} + ${kd}s\\]`;
             
             // 更新辅助显示区域的内容
             if (pidEnabled) {
@@ -1984,6 +2021,7 @@
             }
             
             // 渲染LaTeX公式
+            renderMathInElement(pidTransferFunction);
             renderMathInElement(pidDisplay);
             renderMathInElement(nonPidDisplay);
             
