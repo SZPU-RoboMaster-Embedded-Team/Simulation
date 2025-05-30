@@ -1870,6 +1870,14 @@
                 tab.classList.add('active');
                 const tabId = tab.getAttribute('data-tab');
                 document.getElementById(tabId).classList.add('active');
+                
+                // 当切换到s平面分析标签页时，强制更新极点图
+                if (tabId === 's-plane') {
+                    // 等待DOM更新后再更新极点图，确保元素已经显示
+                    setTimeout(() => {
+                        updatePolePlot();
+                    }, 50);
+                }
             });
         });
         
