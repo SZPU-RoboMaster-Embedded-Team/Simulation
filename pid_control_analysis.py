@@ -16,7 +16,7 @@ def create_plant_tf():
     """创建被控对象的传递函数 G(s) = 1/(s^2 + s + 1)"""
     # 使用control库创建传递函数
     s = control.TransferFunction.s
-    plant_tf = 1 / (s**3 + s**2 + s + 1)
+    plant_tf = 1 / (s**2 + s + 1)
     return plant_tf
 
 def create_closed_loop_tf(controller_tf, plant_tf):
