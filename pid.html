@@ -102,6 +102,24 @@
         .plot-container {
             height: 250px;
             margin: 15px 0;
+            position: relative;
+            width: 100%;
+        }
+        /* 添加媒体查询，在不同屏幕尺寸下调整图表容器高度 */
+        @media (min-width: 768px) {
+            .plot-container {
+                height: 300px;
+            }
+        }
+        @media (min-width: 1200px) {
+            .plot-container {
+                height: 350px;
+            }
+        }
+        /* 确保图表容器能够正确调整 */
+        .plot-container canvas {
+            width: 100% !important;
+            height: 100% !important;
         }
         .spring {
             position: absolute;
@@ -148,6 +166,7 @@
             display: flex;
             margin-bottom: 10px;
             border-bottom: 1px solid #ddd;
+            flex-wrap: wrap; /* 允许标签在小屏幕上换行 */
         }
         .tab {
             padding: 8px 15px;
@@ -156,6 +175,7 @@
             border-bottom: none;
             border-radius: 5px 5px 0 0;
             margin-right: 5px;
+            margin-bottom: 5px; /* 为换行的标签添加底部间距 */
         }
         .tab.active {
             border-color: #ddd;
@@ -174,6 +194,17 @@
             border: 1px solid #ddd;
             background-color: #f9f9f9;
             margin-top: 10px;
+        }
+        /* 添加媒体查询，在不同屏幕尺寸下调整极点图高度 */
+        @media (min-width: 768px) {
+            .pole-zero-plot {
+                height: 300px;
+            }
+        }
+        @media (min-width: 1200px) {
+            .pole-zero-plot {
+                height: 350px;
+            }
         }
         .pole {
             position: absolute;
@@ -292,9 +323,12 @@
             justify-content: space-between;
             align-items: center;
             gap: 10px;
+            flex-wrap: wrap; /* 允许在小屏幕上换行 */
         }
         .transfer-function-column {
             flex: 1;
+            min-width: 250px; /* 确保在小屏幕上有足够宽度 */
+            margin-bottom: 10px;
         }
         .transfer-function-column .equation-box {
             height: 100%;
@@ -401,13 +435,13 @@
                 <h3>传递函数</h3>
                 <div class="transfer-functions-row">
                     <div class="transfer-function-column">
-                        <div class="transfer-function-label">PID控制器:</div>
+                        <div class="transfer-function-label">PID:</div>
                         <div class="equation-box latex-formula compact-formula" id="pid-transfer-function">
                             \[C(s) = K_p + \frac{K_i}{s} + K_d s\]
                         </div>
                     </div>
                     <div class="transfer-function-column">
-                        <div class="transfer-function-label">闭环传递函数:</div>
+                        <div class="transfer-function-label">系统:</div>
                         <div class="equation-box latex-formula compact-formula" id="closed-loop-simplified">
                             <!-- 这里会由JavaScript动态更新 -->
                         </div>
@@ -476,6 +510,14 @@
                 
                 <div class="tab-content" id="frequency-domain">
                     <h3>Bode图</h3>
+                    <!-- 添加Bode图类型选择 -->
+                    <div style="margin-bottom: 10px;">
+                        <label style="margin-right: 10px;">Bode图显示:</label>
+                        <select id="bode-type-selector" style="padding: 4px; border-radius: 4px;">
+                            <option value="system">系统</option>
+                            <option value="pid">PID</option>
+                        </select>
+                    </div>
                     <div class="plot-container" style="height: 400px;">
                         <canvas id="bode-combined-chart"></canvas>
                     </div>
@@ -602,6 +644,7 @@
         // 图表上下文
         let timeResponseChart;
         let bodeCombinedChart;
+        let bodeTypeSelector;
         
         // 全局变量定义
         let velocity = 0;
@@ -633,6 +676,10 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: {
+                        duration: 500  // 加速动画
+                    },
+                    responsiveAnimationDuration: 0, // 禁用响应式变化时的动画
                     plugins: {
                         annotation: {
                             annotations: {}
@@ -654,6 +701,12 @@
                             title: {
                                 display: true,
                                 text: '位移 (米)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    // 移除多余的零
+                                    return parseFloat(value.toFixed(2));
+                                }
                             }
                         }
                     }
@@ -714,6 +767,7 @@
                     animation: {
                         duration: 500  // 加速动画
                     },
+                    responsiveAnimationDuration: 0, // 禁用响应式变化时的动画
                     interaction: {
                         mode: 'index',
                         intersect: false,
@@ -743,6 +797,12 @@
                             grid: {
                                 drawOnChartArea: true,
                             },
+                            ticks: {
+                                callback: function(value) {
+                                    // 移除多余的零
+                                    return parseFloat(value.toFixed(1));
+                                }
+                            }
                         },
                         'y-phase': {
                             type: 'linear',
@@ -757,6 +817,12 @@
                             grid: {
                                 drawOnChartArea: false,
                             },
+                            ticks: {
+                                callback: function(value) {
+                                    // 移除多余的零，整数相位值不显示小数点
+                                    return Number.isInteger(value) ? value : parseFloat(value.toFixed(1));
+                                }
+                            }
                         }
                     },
                     plugins: {
@@ -789,6 +855,20 @@
                     }
                 }
             });
+            
+            // 初始化Bode图类型选择器
+            bodeTypeSelector = document.getElementById('bode-type-selector');
+            if (bodeTypeSelector) {
+                bodeTypeSelector.addEventListener('change', function() {
+                    // 确保在切换类型时清除所有注解
+                    if (bodeCombinedChart && bodeCombinedChart.options && bodeCombinedChart.options.plugins) {
+                        if (bodeCombinedChart.options.plugins.annotation) {
+                            bodeCombinedChart.options.plugins.annotation.annotations = {};
+                        }
+                    }
+                    updateBodePlot();
+                });
+            }
         }
         
         // 初始化KaTeX渲染
@@ -1334,7 +1414,8 @@
         // 更新Bode图
         function updateBodePlot() {
             try {
-                console.log("更新Bode图, PID状态:", pidEnabled, "PID参数:", {kp, ki, kd});
+                const bodeType = document.getElementById('bode-type-selector').value;
+                console.log("更新Bode图, 类型:", bodeType, "PID状态:", pidEnabled, "PID参数:", {kp, ki, kd});
                 let freqData, magData, phaseData;
                 let bandwidth = 0; // 系统带宽
                 
@@ -1357,17 +1438,84 @@
                     kd: currentKd
                 });
                 
-                if (isPIDEnabled) {
+                // 频率范围设置
+                const frequencyPoints = 100;
+                const minFreq = 0.1;
+                const maxFreq = 100;
+                const logStep = Math.pow(maxFreq / minFreq, 1 / (frequencyPoints - 1));
+                
+                freqData = [];
+                magData = [];
+                phaseData = [];
+                
+                // 根据选择的图表类型计算不同的传递函数
+                if (bodeType === 'pid') {
+                    // 计算PID控制器的传递函数 C(s) = Kp + Ki/s + Kds
+                    for (let i = 0; i < frequencyPoints; i++) {
+                        const w = minFreq * Math.pow(logStep, i);
+                        freqData.push(w);
+                        
+                        try {
+                            // PID控制器在频域的表示
+                            // C(jw) = Kp + Ki/(jw) + Kd*(jw)
+                            // 实部 = Kp + Ki*0 + Kd*0 = Kp
+                            // 虚部 = 0 + Ki*(-1/w) + Kd*w = Kd*w - Ki/w
+                            
+                            // 计算PID控制器
+                            const C_real = currentKp;
+                            const C_imag = currentKd * w - currentKi / w;
+                            
+                            // 计算幅值和相位
+                            const C_mag = Math.sqrt(C_real * C_real + C_imag * C_imag);
+                            const C_phase = Math.atan2(C_imag, C_real);
+                            
+                            // 转换为dB和度
+                            const magdB = 20 * Math.log10(C_mag);
+                            const phaseDeg = C_phase * 180 / Math.PI;
+                            
+                            magData.push(magdB);
+                            phaseData.push(phaseDeg);
+                        } catch (err) {
+                            console.error("计算PID控制器频率响应出错:", err, "频率:", w);
+                            magData.push(0);
+                            phaseData.push(0);
+                        }
+                    }
+                    
+                    // 计算PID控制器特性 - 这里我们关注交越频率
+                    for (let i = 0; i < magData.length; i++) {
+                        if (magData[i] <= 0) {
+                            if (i > 0) {
+                                // 线性插值估计0dB交越频率
+                                const freq1 = freqData[i-1];
+                                const freq2 = freqData[i];
+                                const mag1 = magData[i-1];
+                                const mag2 = magData[i];
+                                const crossoverFreq = freq1 + (freq2 - freq1) * (0 - mag1) / (mag2 - mag1);
+                                bandwidth = crossoverFreq; // 使用交越频率作为带宽的近似
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // 更新Bode图信息
+                    let bodeInfoContainer = document.getElementById('bode-info');
+                    if (!bodeInfoContainer) {
+                        bodeInfoContainer = document.createElement('div');
+                        bodeInfoContainer.id = 'bode-info';
+                        bodeInfoContainer.style.marginTop = '10px';
+                        bodeInfoContainer.style.fontSize = '12px';
+                        document.getElementById('frequency-domain').appendChild(bodeInfoContainer);
+                    }
+                    
+                    // 为PID控制器显示特定信息
+                    bodeInfoContainer.innerHTML = `
+                        <div><strong>PID控制器参数:</strong> Kp=${currentKp}, Ki=${currentKi}, Kd=${currentKd}</div>
+                        <div><strong>积分作用:</strong> 低频增益提升，相位滞后90°</div>
+                        <div><strong>微分作用:</strong> 高频增益提升，相位超前90°</div>
+                    `;
+                } else if (isPIDEnabled) {
                     // 计算带PID控制器的闭环频率响应
-                    const frequencyPoints = 100;
-                    const minFreq = 0.1;
-                    const maxFreq = 100;
-                    const logStep = Math.pow(maxFreq / minFreq, 1 / (frequencyPoints - 1));
-                    
-                    freqData = [];
-                    magData = [];
-                    phaseData = [];
-                    
                     for (let i = 0; i < frequencyPoints; i++) {
                         const w = minFreq * Math.pow(logStep, i);
                         freqData.push(w);
@@ -1444,10 +1592,11 @@
                                 const mag1 = magData[i-1];
                                 const mag2 = magData[i];
                                 bandwidth = freq1 + (freq2 - freq1) * ((-3) - mag1) / (mag2 - mag1);
+                                break;
                             } else {
                                 bandwidth = freqData[i];
+                                break;
                             }
-                            break;
                         }
                     }
                     
@@ -1491,10 +1640,22 @@
                     `;
                 } else {
                     // 使用原始系统的频率响应
-                    const calculated = calculateBodeData();
-                    freqData = calculated.freqData;
-                    magData = calculated.magData;
-                    phaseData = calculated.phaseData;
+                    for (let i = 0; i < frequencyPoints; i++) {
+                        const w = minFreq * Math.pow(logStep, i);
+                        freqData.push(w);
+                        
+                        // 计算传递函数在s = jw处的值
+                        const numerator = 1;
+                        const denominator = math.complex(springK - mass * w * w, damping * w);
+                        const G = math.divide(numerator, denominator);
+                        
+                        // 转换为dB和相位
+                        const magdB = 20 * Math.log10(math.abs(G));
+                        const phase = math.arg(G) * 180 / Math.PI;
+                        
+                        magData.push(magdB);
+                        phaseData.push(phase);
+                    }
                     
                     // 计算原始系统带宽
                     // 获取系统在低频时的基础增益
@@ -1510,10 +1671,11 @@
                                 const mag1 = magData[i-1];
                                 const mag2 = magData[i];
                                 bandwidth = freq1 + (freq2 - freq1) * ((thresholdGain) - mag1) / (mag2 - mag1);
+                                break;
                             } else {
                                 bandwidth = freqData[i];
+                                break;
                             }
-                            break;
                         }
                     }
                     
@@ -1552,47 +1714,91 @@
                 // 配置-3dB带宽垂直线注释
                 if (bandwidth > 0) {
                     // 对于未使用PID控制的系统，使用相对于低频增益的-3dB点
-                    const thresholdDB = isPIDEnabled ? -3 : (magData[0] - 3);
+                    let thresholdDB = -3;
+                    if (bodeType !== 'pid' && !isPIDEnabled) {
+                        thresholdDB = magData[0] - 3;
+                    }
                     
-                    bodeCombinedChart.options.plugins.annotation = {
-                        annotations: {
-                            bandwidthLine: {
-                                type: 'line',
-                                xMin: bandwidth,
-                                xMax: bandwidth,
-                                borderColor: 'rgba(155, 89, 182, 0.7)',
-                                borderWidth: 2,
-                                borderDash: [5, 5],
-                                label: {
-                                    display: true,
-                                    content: `-3dB 带宽: ${bandwidth.toFixed(2)} rad/s`,
-                                    position: 'top',
-                                    backgroundColor: 'rgba(155, 89, 182, 0.7)',
-                                    font: {
-                                        size: 12
-                                    }
-                                }
-                            },
-                            thresholdLine: {
-                                type: 'line',
-                                yMin: thresholdDB,
-                                yMax: thresholdDB,
-                                borderColor: 'rgba(155, 89, 182, 0.5)',
-                                borderWidth: 1,
-                                borderDash: [3, 3],
-                                yScaleID: 'y-magnitude'
+                    // 清除现有的所有注解
+                    bodeCombinedChart.options.plugins.annotation.annotations = {};
+                    
+                    // 根据当前图表类型添加适当的注解
+                    if (bodeType === 'pid') {
+                        // 为PID控制器添加交越频率标记
+                        bodeCombinedChart.options.plugins.annotation.annotations.crossoverLine = {
+                            type: 'line',
+                            xMin: bandwidth,
+                            xMax: bandwidth,
+                            borderColor: 'rgba(155, 89, 182, 0.7)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            label: {
+                                display: true,
+                                content: `交越频率: ${bandwidth.toFixed(2)} rad/s`,
+                                position: 'top',
+                                backgroundColor: 'rgba(155, 89, 182, 0.7)',
+                                font: { size: 12 }
                             }
-                        }
-                    };
-                    
-                    // 移除之前的-3dB水平线数据集
-                    if (bodeCombinedChart.data.datasets.length > 4) {
-                        bodeCombinedChart.data.datasets = bodeCombinedChart.data.datasets.slice(0, 4);
+                        };
+                    } else {
+                        // 为系统传递函数添加带宽标记和阈值线
+                        bodeCombinedChart.options.plugins.annotation.annotations.bandwidthLine = {
+                            type: 'line',
+                            xMin: bandwidth,
+                            xMax: bandwidth,
+                            borderColor: 'rgba(155, 89, 182, 0.7)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            label: {
+                                display: true,
+                                content: `-3dB 带宽: ${bandwidth.toFixed(2)} rad/s`,
+                                position: 'top',
+                                backgroundColor: 'rgba(155, 89, 182, 0.7)',
+                                font: { size: 12 }
+                            }
+                        };
+                        
+                        bodeCombinedChart.options.plugins.annotation.annotations.thresholdLine = {
+                            type: 'line',
+                            yMin: thresholdDB,
+                            yMax: thresholdDB,
+                            borderColor: 'rgba(155, 89, 182, 0.5)',
+                            borderWidth: 1,
+                            borderDash: [3, 3],
+                            yScaleID: 'y-magnitude'
+                        };
                     }
                 }
                 
+                // 移除之前的-3dB水平线数据集
+                if (bodeCombinedChart.data.datasets.length > 4) {
+                    bodeCombinedChart.data.datasets = bodeCombinedChart.data.datasets.slice(0, 4);
+                }
+                
                 // 更新标题以反映当前显示的是什么传递函数
-                if (pidEnabled) {
+                if (bodeType === 'pid') {
+                    bodeCombinedChart.options.plugins.title = {
+                        display: true,
+                        text: 'PID控制器Bode图 C(s) = Kp + Ki/s + Kd·s',
+                        font: {
+                            size: 14
+                        }
+                    };
+                    
+                    // 调整Y轴范围以适应PID控制器
+                    let maxMag = Math.max(...magData) + 10;
+                    let minMag = Math.min(...magData) - 10;
+                    // 确保显示范围合理
+                    maxMag = Math.max(maxMag, 60);
+                    minMag = Math.min(minMag, -60);
+                    
+                    bodeCombinedChart.options.scales['y-magnitude'].min = minMag;
+                    bodeCombinedChart.options.scales['y-magnitude'].max = maxMag;
+                    
+                    // 相位范围可能需要更大以显示积分和微分作用
+                    bodeCombinedChart.options.scales['y-phase'].min = -270;
+                    bodeCombinedChart.options.scales['y-phase'].max = 90;
+                } else if (isPIDEnabled) {
                     bodeCombinedChart.options.plugins.title = {
                         display: true,
                         text: '闭环系统Bode图',
@@ -1604,6 +1810,10 @@
                     // 更新Y轴范围以适应闭环响应
                     bodeCombinedChart.options.scales['y-magnitude'].min = -40;
                     bodeCombinedChart.options.scales['y-magnitude'].max = 20;
+                    
+                    // 重置相位范围
+                    bodeCombinedChart.options.scales['y-phase'].min = -180;
+                    bodeCombinedChart.options.scales['y-phase'].max = 0;
                 } else {
                     bodeCombinedChart.options.plugins.title = {
                         display: true,
@@ -1618,6 +1828,10 @@
                     const maxMag = Math.max(10, magData[0] + 5);
                     bodeCombinedChart.options.scales['y-magnitude'].min = minMag;
                     bodeCombinedChart.options.scales['y-magnitude'].max = maxMag;
+                    
+                    // 重置相位范围
+                    bodeCombinedChart.options.scales['y-phase'].min = -180;
+                    bodeCombinedChart.options.scales['y-phase'].max = 0;
                 }
                 
                 // 强制更新图表
@@ -1996,6 +2210,29 @@
                 console.error("初始化过程中出错:", e);
             }
         });
+        
+        // 添加窗口大小变化监听，以便在响应式布局下重新调整图表
+        window.addEventListener('resize', debounce(function() {
+            console.log("窗口大小变化，重新渲染图表");
+            if (timeResponseChart) timeResponseChart.update();
+            if (bodeCombinedChart) bodeCombinedChart.update();
+            
+            // 更新极点图
+            setTimeout(updatePolePlot, 100);
+        }, 250));
+        
+        // 防抖函数，避免窗口大小变化时频繁触发重绘
+        function debounce(func, wait) {
+            let timeout;
+            return function() {
+                const context = this;
+                const args = arguments;
+                clearTimeout(timeout);
+                timeout = setTimeout(function() {
+                    func.apply(context, args);
+                }, wait);
+            };
+        }
         
         // 更新闭环传递函数显示
         function updateClosedLoopDisplay() {
