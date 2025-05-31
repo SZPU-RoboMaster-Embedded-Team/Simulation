@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>弹簧-质量-阻尼系统演示</title>
+    <title>无人机控制系统演示</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <!-- 添加Chart.js注释插件 -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.0.0/dist/chartjs-plugin-annotation.min.js"></script>
@@ -33,9 +33,10 @@
         }
         .flex-container {
             display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
+            flex-wrap: nowrap;
+            gap: 0;
             margin-bottom: 20px;
+            position: relative;
         }
         .panel {
             flex: 1;
@@ -44,15 +45,127 @@
             border: 1px solid #ddd;
             border-radius: 8px;
             background-color: #fff;
+            overflow: auto; /* 添加滚动条以防内容溢出 */
+        }
+        /* 为物理系统面板添加特殊样式 */
+        .panel.system-panel {
+            flex: 1; /* 改为1，与右侧面板初始比例相等 */
+        }
+        /* 添加可拖动分隔线样式 */
+        .panel-resizer {
+            width: 8px;
+            background-color: #ddd;
+            cursor: col-resize;
+            margin: 0 -4px;
+            z-index: 10;
+            position: relative;
+            transition: background-color 0.2s;
+        }
+        .panel-resizer:hover, .panel-resizer.dragging {
+            background-color: #3498db;
         }
         .system-animation {
             width: 100%;
-            height: 200px;
+            height: 300px;
             border: 1px solid #ccc;
             margin: 10px 0;
             position: relative;
             overflow: hidden;
             background-color: #f9f9f9;
+            background-image: linear-gradient(0deg, #a0a0a0 1px, transparent 1px);
+            background-size: 100% 20px;
+        }
+        /* 无人机样式 */
+        .drone {
+            position: absolute;
+            width: 60px;
+            height: 20px;
+            background-color: #e74c3c;
+            border-radius: 30px 30px 5px 5px;
+            bottom: 10px;
+            left: 130px;
+            transition: transform 0.1s;
+        }
+        .drone::before, .drone::after {
+            content: '';
+            position: absolute;
+            width: 80px;
+            height: 6px;
+            background-color: #7f8c8d;
+            border-radius: 3px;
+        }
+        .drone::before {
+            top: -8px;
+            left: -10px;
+        }
+        .drone::after {
+            bottom: -8px;
+            left: -10px;
+        }
+        .propeller {
+            position: absolute;
+            width: 20px;
+            height: 3px;
+            background-color: #3498db;
+            border-radius: 3px;
+            top: -10px;
+        }
+        .propeller-1 {
+            left: 5px;
+            animation: spin 0.1s linear infinite;
+        }
+        .propeller-2 {
+            right: 5px;
+            animation: spin 0.1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .thrust-indicator {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            bottom: 20px;
+            left: 145px;
+            display: none;
+        }
+        .thrust-arrow {
+            position: absolute;
+            width: 4px;
+            height: 20px;
+            background-color: #f39c12;
+            bottom: 0;
+            left: 13px;
+        }
+        .thrust-arrow::before {
+            content: '';
+            position: absolute;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 10px solid #f39c12;
+            top: -10px;
+            left: -8px;
+        }
+        .ground-reference {
+            position: absolute;
+            height: 2px;
+            background-color: rgba(46, 204, 113, 0.7);
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+        }
+        .height-marker {
+            position: absolute;
+            left: 10px;
+            font-size: 11px;
+            color: #555;
+            width: 40px;
+            text-align: right;
+        }
+        /* 移除旧样式 */
+        .spring, .mass, .damper, .ground, .force-arrow {
+            display: none;
         }
         .controls {
             display: flex;
@@ -75,6 +188,11 @@
         }
         input[type="range"] {
             width: 150px;
+        }
+        /* 禁用状态的滑块样式 */
+        input[type="range"].disabled-slider {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
         .value-display {
             width: 40px;
@@ -121,6 +239,12 @@
             width: 100% !important;
             height: 100% !important;
         }
+        .tabs {
+            display: flex;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+            flex-wrap: wrap; /* 允许标签在小屏幕上换行 */
+        }
         .spring {
             position: absolute;
             height: 20px;
@@ -161,12 +285,6 @@
             background-color: #f39c12;
             bottom: 105px;
             left: 180px;
-        }
-        .tabs {
-            display: flex;
-            margin-bottom: 10px;
-            border-bottom: 1px solid #ddd;
-            flex-wrap: wrap; /* 允许标签在小屏幕上换行 */
         }
         .tab {
             padding: 8px 15px;
@@ -350,15 +468,55 @@
         .compact-formula .katex {
             font-size: 0.9em;
         }
+        /* 目标高度参考线 */
+        .target-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background-color: rgba(46, 204, 113, 0.8);
+            left: 0;
+            bottom: 20px; /* 初始位置与地面参考线一致 */
+        }
+        .target-label {
+            position: absolute;
+            right: 10px;
+            font-size: 11px;
+            color: #27ae60;
+            width: 70px;
+            text-align: left;
+        }
+        /* 添加鼠标悬停指示器 */
+        .hover-indicator {
+            position: absolute;
+            height: 1px;
+            background-color: rgba(52, 152, 219, 0.5);
+            left: 0;
+            width: 100%;
+            pointer-events: none; /* 确保不会干扰鼠标事件 */
+            display: none;
+            transition: transform 0.05s ease-out;
+        }
+        .hover-value {
+            position: absolute;
+            right: 10px;
+            padding: 2px 5px;
+            background-color: rgba(52, 152, 219, 0.7);
+            color: white;
+            border-radius: 3px;
+            font-size: 11px;
+            transform: translateY(-50%);
+            pointer-events: none; /* 确保不会干扰鼠标事件 */
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>弹簧-质量-阻尼系统动态演示</h1>
+        <h1>无人机控制系统动态演示</h1>
         
         <div class="controls">
             <div class="control-group">
-                <label for="mass">质量 (m)</label>
+                <label for="mass">无人机质量 (m)</label>
                 <div class="slider-container">
                     <input type="range" id="mass" min="0.1" max="5" step="0.1" value="1">
                     <span id="mass-value" class="value-display">1 kg</span>
@@ -374,7 +532,7 @@
             </div>
             
             <div class="control-group">
-                <label for="spring">弹簧刚度 (k)</label>
+                <label for="spring">刚度系数 (k)</label>
                 <div class="slider-container">
                     <input type="range" id="spring" min="1" max="30" step="0.1" value="10">
                     <span id="spring-value" class="value-display">10 N/m</span>
@@ -382,7 +540,7 @@
             </div>
             
             <button id="reset-button">重置参数</button>
-            <button id="step-input">施加阶跃输入</button>
+            <button id="step-input">施加上升指令</button>
         </div>
         
         <!-- 添加PID控制器部分 -->
@@ -394,7 +552,9 @@
                 <input type="checkbox" id="pid-enable">
             </div>
             
-            <div class="pid-controls">
+            <!-- 删除旧的开环控制区域 -->
+            
+            <div class="pid-controls" id="pid-controls-panel">
                 <div class="control-group">
                     <label for="kp">比例增益 (Kp)</label>
                     <div class="slider-container">
@@ -424,9 +584,18 @@
                 <div class="control-group">
                     <label for="setpoint">设定值 (r)</label>
                     <div class="slider-container">
-                        <input type="range" id="setpoint" min="0" max="2" step="0.1" value="1">
-                        <span id="setpoint-value" class="value-display">1</span>
+                        <input type="range" id="setpoint" min="0" max="100" step="1" value="10">
+                        <span id="setpoint-value" class="value-display">10</span>
                     </div>
+                </div>
+                <!-- 添加开环控制按钮和推力设置 -->
+                <div style="margin-top: 15px; display: flex; align-items: center;">
+                    <div class="slider-container" style="margin-right: 15px;">
+                        <label for="thrust-control" style="margin-right: 10px;">推力值:</label>
+                        <input type="range" id="thrust-control" min="0" max="500" step="5" value="100" style="width: 120px;">
+                        <span id="thrust-value" class="value-display">100</span>
+                    </div>
+                    <button id="open-loop-button" style="background-color: #e67e22;">开环控制</button>
                 </div>
             </div>
             
@@ -463,26 +632,38 @@
         </div>
         
         <div class="flex-container">
-            <div class="panel">
+            <div class="panel system-panel">
                 <h2>物理系统</h2>
                 <div class="system-animation" id="animation-container">
-                    <div class="ground"></div>
-                    <div class="spring" id="spring-element"></div>
-                    <div class="mass" id="mass-element"></div>
-                    <div class="damper" id="damper-element"></div>
-                    <div class="force-arrow" id="force-arrow" style="display: none;"></div>
+                    <div class="ground-reference"></div>
+                    <div class="height-marker" id="height-marker" style="bottom: 40px;">0 m</div>
+                    <div class="target-line" id="target-line"></div>
+                    <div class="target-label" id="target-label" style="bottom: 20px;">目标: 1.0 m</div>
+                    <div class="drone" id="drone-element">
+                        <div class="propeller propeller-1"></div>
+                        <div class="propeller propeller-2"></div>
+                    </div>
+                    <div class="thrust-indicator" id="thrust-indicator">
+                        <div class="thrust-arrow"></div>
+                    </div>
+                    <!-- 添加悬停指示器 -->
+                    <div class="hover-indicator" id="hover-indicator"></div>
+                    <div class="hover-value" id="hover-value">0.0 m</div>
                 </div>
                 
                 <h3>微分方程（时域表示）</h3>
-                <div class="equation-box latex-formula" id="differential-equation">
-                    m\ddot{x}(t) + c\dot{x}(t) + kx(t) = F(t)
+                <div class="equation-box latex-formula" id="differential-equation" style="padding: 5px; margin: 5px 0;">
+                    m\ddot{y}(t) + c\dot{y}(t) + ky(t) = F(t)
                 </div>
                 
                 <h3>传递函数（频域表示）</h3>
-                <div class="equation-box latex-formula" id="transfer-function">
+                <div class="equation-box latex-formula" id="transfer-function" style="padding: 5px; margin: 5px 0;">
                     G(s) = \frac{1}{ms^2 + cs + k}
                 </div>
             </div>
+            
+            <!-- 添加可拖动分隔线 -->
+            <div class="panel-resizer" id="panel-resizer"></div>
             
             <div class="panel">
                 <div class="tabs">
@@ -497,14 +678,14 @@
                         <canvas id="time-response-chart"></canvas>
                     </div>
                     <p>
-                        时域分析直接展示系统对输入的响应随时间的变化。
+                        时域分析直接展示无人机对高度指令的响应随时间的变化。
                         从阶跃响应中可以观察到：
                     </p>
                     <ul>
-                        <li>上升时间：系统响应初始增长速度</li>
-                        <li>峰值时间：达到第一个峰值的时间</li>
-                        <li>超调量：峰值超过稳态值的百分比</li>
-                        <li>稳定时间：响应进入稳态范围所需的时间</li>
+                        <li>上升时间：无人机初始上升速度</li>
+                        <li>峰值时间：达到最高点的时间</li>
+                        <li>超调量：超过目标高度的百分比</li>
+                        <li>稳定时间：无人机进入稳定悬停所需的时间</li>
                     </ul>
                 </div>
                 
@@ -522,14 +703,14 @@
                         <canvas id="bode-combined-chart"></canvas>
                     </div>
                     <p>
-                        频域分析展示了系统在不同频率下的响应特性：
+                        频域分析展示了无人机系统在不同频率下的响应特性：
                     </p>
                     <ul>
-                        <li>幅频特性：表示系统在各频率下的增益</li>
-                        <li>相频特性：表示系统在各频率下的相位滞后</li>
-                        <li>共振峰：表示系统的共振频率，与阻尼比相关</li>
-                        <li>截止频率：系统幅值下降到-3dB的频率，表示系统带宽</li>
-                        <li>相位富裕度：增益为0dB时的相位与-180°之间的差值</li>
+                        <li>幅频特性：表示无人机在各频率下的反应灵敏度</li>
+                        <li>相频特性：表示无人机在各频率下的相位滞后</li>
+                        <li>共振峰：表示无人机的共振频率，与阻尼比相关</li>
+                        <li>截止频率：系统幅值下降到-3dB的频率，表示无人机的响应带宽</li>
+                        <li>相位富裕度：表示无人机控制系统的稳定裕度</li>
                     </ul>
                 </div>
                 
@@ -545,14 +726,14 @@
                         特征方程：ms^2 + cs + k = 0
                     </div>
                     <p>
-                        s平面分析揭示了系统的稳定性和动态特性：
+                        s平面分析揭示了无人机系统的稳定性和动态特性：
                     </p>
                     <ul>
-                        <li>极点位于左半平面 → 系统稳定</li>
-                        <li>极点位于虚轴 → 等幅振荡</li>
-                        <li>极点位于右半平面 → 系统不稳定</li>
-                        <li>极点到原点的距离 → 系统响应速度</li>
-                        <li>极点与实轴的夹角 → 系统振荡频率</li>
+                        <li>极点位于左半平面 → 无人机稳定</li>
+                        <li>极点位于虚轴 → 无人机持续振荡</li>
+                        <li>极点位于右半平面 → 无人机不稳定</li>
+                        <li>极点到原点的距离 → 无人机响应速度</li>
+                        <li>极点与实轴的夹角 → 无人机振荡频率</li>
                     </ul>
                 </div>
             </div>
@@ -562,36 +743,36 @@
             <h2>时域与频域的转换关系</h2>
             <p>
                 拉普拉斯变换将时域中的微分方程转换为频域中的代数方程，极大地简化了分析过程。
-                对于弹簧-质量-阻尼系统，其转换关系为：
+                对于无人机垂直运动系统，其转换关系为：
             </p>
             <div class="equation-box">
                 <div class="latex-formula">
-                    \[m\ddot{x}(t) + c\dot{x}(t) + kx(t) = F(t)\]
+                    \[m\ddot{y}(t) + c\dot{y}(t) + ky(t) = F(t)\]
                 </div>
                 <div style="text-align: center;">⬇️ 拉普拉斯变换 ⬇️</div>
                 <div class="latex-formula">
-                    \[ms^2X(s) + csX(s) + kX(s) = F(s)\]
+                    \[ms^2Y(s) + csY(s) + kY(s) = F(s)\]
                 </div>
                 <div style="text-align: center;">⬇️ 整理得到传递函数 ⬇️</div>
                 <div class="latex-formula">
-                    \[G(s) = \frac{X(s)}{F(s)} = \frac{1}{ms^2 + cs + k}\]
+                    \[G(s) = \frac{Y(s)}{F(s)} = \frac{1}{ms^2 + cs + k}\]
                 </div>
             </div>
             <p>
-                系统特性参数与传递函数的关系：
+                无人机系统特性参数与传递函数的关系：
             </p>
             <ul>
-                <li><strong>自然频率 ωn</strong> = \(\sqrt{\frac{k}{m}}\)：表示无阻尼时系统的振荡频率</li>
-                <li><strong>阻尼比 ζ</strong> = \(\frac{c}{2\sqrt{km}}\)：描述系统阻尼程度</li>
+                <li><strong>自然频率 ωn</strong> = \(\sqrt{\frac{k}{m}}\)：表示无阻尼时无人机的振荡频率</li>
+                <li><strong>阻尼比 ζ</strong> = \(\frac{c}{2\sqrt{km}}\)：描述无人机振荡衰减的程度</li>
                 <li><strong>阻尼振荡频率 ωd</strong> = \(\omega_n\sqrt{1-\zeta^2}\)：实际振荡频率</li>
             </ul>
             <p>
-                当调整系统参数时，可以观察到：
+                当调整无人机系统参数时，可以观察到：
             </p>
             <ul>
-                <li>增加质量(m)：降低自然频率，系统响应变慢</li>
-                <li>增加阻尼(c)：减小振荡，极点向实轴移动</li>
-                <li>增加刚度(k)：提高自然频率，Bode图右移</li>
+                <li>增加质量(m)：降低响应速度，无人机变得迟钝</li>
+                <li>增加阻尼(c)：减小振荡，使无人机运动更平稳</li>
+                <li>增加刚度(k)：提高自然频率，使无人机回归平衡位置更快</li>
             </ul>
         </div>
     </div>
@@ -608,7 +789,10 @@
         let kp = 10;            // 比例增益
         let ki = 0.5;           // 积分增益
         let kd = 2;             // 微分增益
-        let setpoint = 1;       // 设定值
+        let setpoint = 10;      // 设定值
+        
+        // 开环控制参数
+        let openLoopThrust = 1.0; // 开环推力值初始值
         
         // 获取UI元素
         const massSlider = document.getElementById('mass');
@@ -640,6 +824,12 @@
         const setpointSlider = document.getElementById('setpoint');
         const setpointValue = document.getElementById('setpoint-value');
         const pidInfo = document.getElementById('pid-info');
+        
+        // 开环控制UI元素
+        const thrustSlider = document.getElementById('thrust-control');
+        const thrustValue = document.getElementById('thrust-value');
+        const openLoopButton = document.getElementById('open-loop-button');
+        const pidControlsPanel = document.getElementById('pid-controls-panel');
         
         // 图表上下文
         let timeResponseChart;
@@ -886,7 +1076,7 @@
         
         // 更新数学表达式
         function updateEquations() {
-            differentialEquation.innerHTML = `\\[${mass}\\ddot{x}(t) + ${damping}\\dot{x}(t) + ${springK}x(t) = F(t)\\]`;
+            differentialEquation.innerHTML = `\\[${mass}\\ddot{y}(t) + ${damping}\\dot{y}(t) + ${springK}y(t) = F(t)\\]`;
             transferFunction.innerHTML = `\\[G(s) = \\frac{1}{${mass}s^2 + ${damping}s + ${springK}}\\]`;
             characteristicEquation.innerHTML = `特征方程：\\[${mass}s^2 + ${damping}s + ${springK} = 0\\]`;
             
@@ -918,7 +1108,7 @@
                     const t = i * dt;
                     timeData.push(Number(t.toFixed(2)));
                     
-                    // 计算误差
+                    // 计算误差 - 使用实时的setpoint值而非固定值
                     const error = setpoint - position;
                     errorData.push(error);
                     
@@ -960,40 +1150,10 @@
             try {
                 if (pidEnabled) {
                     return calculatePIDResponse();
+                } else {
+                    // 使用开环控制响应计算
+                    return calculateOpenLoopResponse();
                 }
-                
-                const timePoints = 100; // 减少数据点数量
-                const maxTime = 10;
-                const dt = maxTime / timePoints;
-                
-                // 计算系统参数
-                const wn = Math.sqrt(springK / mass);  // 自然频率
-                const zeta = damping / (2 * Math.sqrt(mass * springK));  // 阻尼比
-                
-                const timeData = [];
-                const responseData = [];
-                
-                for (let i = 0; i < timePoints; i++) {
-                    const t = i * dt;
-                    timeData.push(Number(t.toFixed(2))); // 保留两位小数，避免浮点精度问题
-                    
-                    let x;
-                    if (zeta < 1) {  // 欠阻尼
-                        const wd = wn * Math.sqrt(1 - zeta * zeta);  // 阻尼振荡频率
-                        x = 1 - (Math.exp(-zeta * wn * t) / Math.sqrt(1 - zeta * zeta)) * 
-                            Math.sin(wd * t + Math.atan(Math.sqrt(1 - zeta * zeta) / zeta));
-                    } else if (zeta === 1) {  // 临界阻尼
-                        x = 1 - Math.exp(-wn * t) * (1 + wn * t);
-                    } else {  // 过阻尼
-                        const p1 = -wn * (zeta + Math.sqrt(zeta * zeta - 1));
-                        const p2 = -wn * (zeta - Math.sqrt(zeta * zeta - 1));
-                        x = 1 + (p2 * Math.exp(p1 * t) - p1 * Math.exp(p2 * t)) / (p2 - p1);
-                    }
-                    
-                    responseData.push(x);
-                }
-                
-                return { timeData, responseData };
             } catch (e) {
                 console.error("计算阶跃响应时出错:", e);
                 // 返回空数据防止崩溃
@@ -1002,6 +1162,42 @@
                     responseData: Array(100).fill(0) 
                 };
             }
+        }
+        
+        // 添加开环控制响应计算
+        function calculateOpenLoopResponse() {
+            const timePoints = 100; // 减少数据点数量
+            const maxTime = 10;
+            const dt = maxTime / timePoints;
+            
+            const timeData = [];
+            const responseData = [];
+            const controlData = []; // 控制信号
+            
+            // 系统状态变量
+            let position = 0;
+            let velocity = 0;
+            
+            for (let i = 0; i < timePoints; i++) {
+                const t = i * dt;
+                timeData.push(Number(t.toFixed(2)));
+                
+                // 使用固定的开环控制信号
+                const controlSignal = openLoopThrust;
+                controlData.push(controlSignal);
+                
+                // 系统动力学方程: m*a + c*v + k*x = u
+                // a = (u - c*v - k*x) / m
+                const acceleration = (controlSignal - damping * velocity - springK * position) / mass;
+                
+                // 更新速度和位置（欧拉积分）
+                velocity += acceleration * dt;
+                position += velocity * dt;
+                
+                responseData.push(position);
+            }
+            
+            return { timeData, responseData, controlData };
         }
         
         // 计算Bode图数据
@@ -1334,11 +1530,28 @@
                 timeResponseChart.data.labels = response.timeData;
                 timeResponseChart.data.datasets[0].data = response.responseData;
                 
-                // 隐藏额外的数据集
-                if (timeResponseChart.data.datasets.length > 1) {
-                    for (let i = 1; i < timeResponseChart.data.datasets.length; i++) {
-                        timeResponseChart.data.datasets[i].hidden = true;
-                    }
+                // 确保数据集数量正确
+                while (timeResponseChart.data.datasets.length < 2) {
+                    const colors = ['#e74c3c', '#3498db'];
+                    const labels = ['位移 y(t)', '控制信号 u(t)'];
+                    
+                    timeResponseChart.data.datasets.push({
+                        label: labels[timeResponseChart.data.datasets.length],
+                        data: [],
+                        borderColor: colors[timeResponseChart.data.datasets.length],
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.2,
+                        pointRadius: 0,
+                        hidden: timeResponseChart.data.datasets.length > 0 // 默认只显示位移
+                    });
+                }
+                
+                // 将开环控制信号添加到图表中
+                if (response.controlData && timeResponseChart.data.datasets.length > 1) {
+                    timeResponseChart.data.datasets[1].data = response.controlData;
+                    // 默认隐藏控制信号
+                    timeResponseChart.data.datasets[1].hidden = true;
                 }
                 
                 // 移除设定值参考线
@@ -1886,18 +2099,14 @@
                 position = previousPosition + velocity * dt;
                 previousPosition = position;
             } else {
-                // 原始弹簧-质量-阻尼系统的阶跃响应
-                if (zeta < 1) {  // 欠阻尼
-                    const wd = wn * Math.sqrt(1 - zeta * zeta);  // 阻尼振荡频率
-                    position = 1 - (Math.exp(-zeta * wn * elapsedTime) / Math.sqrt(1 - zeta * zeta)) * 
-                        Math.sin(wd * elapsedTime + Math.atan(Math.sqrt(1 - zeta * zeta) / zeta));
-                } else if (zeta === 1) {  // 临界阻尼
-                    position = 1 - Math.exp(-wn * elapsedTime) * (1 + wn * elapsedTime);
-                } else {  // 过阻尼
-                    const p1 = -wn * (zeta + Math.sqrt(zeta * zeta - 1));
-                    const p2 = -wn * (zeta - Math.sqrt(zeta * zeta - 1));
-                    position = 1 + (p2 * Math.exp(p1 * elapsedTime) - p1 * Math.exp(p2 * elapsedTime)) / (p2 - p1);
-                }
+                // 开环控制 - 使用用户设定的推力值
+                const controlSignal = openLoopThrust;
+                
+                // 系统动力学方程
+                const acceleration = (controlSignal - damping * velocity - springK * previousPosition) / mass;
+                velocity += acceleration * dt;
+                position = previousPosition + velocity * dt;
+                previousPosition = position;
             }
             
             // 防止NaN或无限值导致动画异常
@@ -1907,27 +2116,36 @@
             }
             
             // 为动画设置合适的缩放
-            const scaleFactor = 50;  // 调整以适应动画区域
+            const scaleFactor = 5;  // 大幅减小缩放因子以适应非常大的值范围
             const displacement = position * scaleFactor;
             
             // 限制位移范围，防止元素移出可视区域
-            const limitedDisplacement = Math.max(-50, Math.min(150, displacement));
+            const maxDisplacement = 270; // 确保不会超出动画区域边界
+            const limitedDisplacement = Math.max(-50, Math.min(maxDisplacement, displacement));
             
-            // 更新质量位置
-            massElement.style.transform = `translateX(${limitedDisplacement}px)`;
+            // 更新无人机位置（上下移动）
+            const droneElement = document.getElementById('drone-element');
+            droneElement.style.transform = `translateY(${-limitedDisplacement}px)`;
             
-            // 更新弹簧长度
-            springElement.style.width = `${80 + limitedDisplacement}px`;
+            // 更新高度标记
+            const heightMarker = document.getElementById('height-marker');
+            heightMarker.textContent = `${position.toFixed(2)} m`;
+            heightMarker.style.bottom = `${40 + limitedDisplacement}px`;
             
-            // 更新阻尼器位置
-            damperElement.style.transform = `translateX(${limitedDisplacement}px)`;
+            // 更新推力指示器
+            const thrustIndicator = document.getElementById('thrust-indicator');
+            thrustIndicator.style.display = 'block';
+            thrustIndicator.style.transform = `translateY(${-limitedDisplacement}px)`;
             
-            // 速度视觉反馈（通过颜色）
-            const velocityColor = Math.abs(velocity) * 5;
-            const r = Math.min(255, 231 + velocityColor);
-            const g = Math.max(0, 76 - velocityColor);
-            const b = Math.max(0, 60 - velocityColor);
-            massElement.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+            // 速度视觉反馈（通过螺旋桨速度）
+            const propeller1 = document.querySelector('.propeller-1');
+            const propeller2 = document.querySelector('.propeller-2');
+            const spinRate = Math.max(0.05, Math.min(0.01, 0.05 - Math.abs(velocity) * 0.01));
+            
+            if (propeller1 && propeller2) {
+                propeller1.style.animation = `spin ${spinRate}s linear infinite`;
+                propeller2.style.animation = `spin ${spinRate}s linear infinite`;
+            }
             
             animationId = requestAnimationFrame(updateAnimation);
         }
@@ -1935,7 +2153,12 @@
         // 开始阶跃响应动画
         function startStepResponse() {
             stepInput = true;
-            forceArrow.style.display = 'block';
+            const thrustIndicator = document.getElementById('thrust-indicator');
+            if (thrustIndicator) thrustIndicator.style.display = 'block';
+            
+            // 确保目标参考线显示正确
+            updateTargetLine(setpoint);
+            
             startTime = performance.now();
             previousPosition = 0;
             velocity = 0; // 重置速度
@@ -1944,9 +2167,14 @@
             lastTime = startTime; // 初始化时间
             
             // 重置元素位置
-            massElement.style.transform = 'translateX(0)';
-            springElement.style.width = '80px';
-            damperElement.style.transform = 'translateX(0)';
+            const droneElement = document.getElementById('drone-element');
+            if (droneElement) droneElement.style.transform = 'translateY(0)';
+            
+            const heightMarker = document.getElementById('height-marker');
+            if (heightMarker) {
+                heightMarker.textContent = "0 m";
+                heightMarker.style.bottom = "40px";
+            }
             
             cancelAnimationFrame(animationId);
             animationId = requestAnimationFrame(updateAnimation);
@@ -2100,37 +2328,49 @@
             pidEnabled = this.checked;
             console.log("PID状态变更为:", pidEnabled);
             
+            // 使用新函数更新UI状态
+            updatePIDControlsState(pidEnabled);
+            
             // 重置PID相关变量
             previousPosition = 0;
             velocity = 0;
             lastError = 0;
             integralSum = 0;
             
-            // 重置动画位置
-            massElement.style.transform = 'translateX(0)';
-            springElement.style.width = '80px';
-            damperElement.style.transform = 'translateX(0)';
+            // 重置元素位置
+            const droneElement = document.getElementById('drone-element');
+            if (droneElement) droneElement.style.transform = 'translateY(0)';
             
-            // 先更新传递函数显示
-            updateClosedLoopDisplay();
+            const heightMarker = document.getElementById('height-marker');
+            if (heightMarker) {
+                heightMarker.textContent = "0 m";
+                heightMarker.style.bottom = "40px";
+            }
+            
+            // 确保目标参考线显示正确
+            updateTargetLine(setpoint);
             
             // 强制立即更新Bode图和极点图
-            console.log("强制立即更新Bode图");
+            updateClosedLoopDisplay();
             updateBodePlot();
+            bodeCombinedChart.update('none'); // 强制更新图表
             updatePolePlot();
-            
-            // 再更新其他可视化
-            updateEquations();
             updateTimeResponse();
             
             console.log("PID状态切换更新完成");
+        });
+        
+        // 添加开环控制滑块事件监听器
+        thrustSlider.addEventListener('input', function() {
+            openLoopThrust = parseFloat(this.value);
+            thrustValue.textContent = openLoopThrust;
+            console.log("开环推力值更新为:", openLoopThrust);
             
-            // 为确保所有图表完全更新，再次延迟更新
-            setTimeout(() => {
-                console.log("额外强制更新Bode图");
-                updateBodePlot();
-                bodeCombinedChart.update('none');
-            }, 100);
+            // 如果开环动画正在运行，更新推力值
+            if (!pidEnabled && stepInput) {
+                // 更新图表但不重启动画
+                updateTimeResponse();
+            }
         });
         
         kpSlider.addEventListener('input', function() {
@@ -2191,9 +2431,34 @@
             setpoint = parseFloat(this.value);
             setpointValue.textContent = setpoint;
             console.log("设定值更新为:", setpoint);
+            
+            // 更新目标参考线的位置
+            updateTargetLine(setpoint);
+            
             // 设定值主要影响时域响应
             updateTimeResponse();
         });
+        
+        // 更新目标参考线的位置
+        function updateTargetLine(target) {
+            const scaleFactor = 5; // 与动画中保持一致的缩放因子
+            const displacement = target * scaleFactor;
+            // 限制在合理范围内
+            const maxDisplacement = 270; // 确保不会超出动画区域边界
+            const limitedDisplacement = Math.max(-50, Math.min(maxDisplacement, displacement));
+            
+            const targetLine = document.getElementById('target-line');
+            const targetLabel = document.getElementById('target-label');
+            
+            if (targetLine) {
+                targetLine.style.bottom = `${20 + limitedDisplacement}px`;
+            }
+            
+            if (targetLabel) {
+                targetLabel.style.bottom = `${20 + limitedDisplacement}px`;
+                targetLabel.textContent = `目标: ${target.toFixed(1)} m`;
+            }
+        }
         
         // 初始化
         window.addEventListener('load', function() {
@@ -2204,6 +2469,62 @@
                 updateVisualizations();
                 console.log("渲染LaTeX公式...");
                 renderLatexFormulas();
+                
+                // 初始化分隔线拖动功能
+                console.log("初始化分隔线...");
+                initPanelResizer();
+                
+                // 初始化物理系统背景点击功能
+                console.log("初始化物理系统点击功能...");
+                initAnimationClickHandler();
+                
+                // 初始化目标参考线
+                updateTargetLine(setpoint);
+                
+                // 初始化PID控制器UI状态
+                updatePIDControlsState(pidEnabled);
+                
+                // 添加开环控制按钮事件监听器
+                const openLoopButton = document.getElementById('open-loop-button');
+                if (openLoopButton) {
+                    openLoopButton.addEventListener('click', function() {
+                        if (pidEnabled) {
+                            // 如果PID已启用，不执行任何操作
+                            return;
+                        }
+                        
+                        // 先重置动画状态
+                        // 重置状态变量
+                        previousPosition = 0;
+                        velocity = 0;
+                        lastError = 0;
+                        integralSum = 0;
+                        
+                        // 重置元素位置
+                        const droneElement = document.getElementById('drone-element');
+                        if (droneElement) droneElement.style.transform = 'translateY(0)';
+                        
+                        const heightMarker = document.getElementById('height-marker');
+                        if (heightMarker) {
+                            heightMarker.textContent = "0 m";
+                            heightMarker.style.bottom = "120px";
+                        }
+                        
+                        // 启动开环控制
+                        openLoopThrust = parseFloat(thrustSlider.value);
+                        stepInput = true;
+                        
+                        // 重新开始动画
+                        startTime = performance.now();
+                        lastTime = startTime;
+                        
+                        // 启动动画
+                        if (animationId) {
+                            cancelAnimationFrame(animationId);
+                        }
+                        animationId = requestAnimationFrame(updateAnimation);
+                    });
+                }
                 
                 console.log("初始化完成");
             } catch (e) {
@@ -2271,6 +2592,254 @@
             renderMathInElement(nonPidDisplay);
             
             console.log("闭环传递函数显示更新完成");
+        }
+        
+        // 添加分隔线拖动功能
+        function initPanelResizer() {
+            const resizer = document.getElementById('panel-resizer');
+            const flexContainer = document.querySelector('.flex-container');
+            const leftPanel = document.querySelector('.panel.system-panel');
+            const rightPanel = document.querySelector('.flex-container > .panel:nth-child(3)');
+            
+            if (!resizer || !leftPanel || !rightPanel || !flexContainer) {
+                console.error("无法找到分隔线或面板元素");
+                return;
+            }
+            
+            let x = 0;
+            let leftPanelWidth = 0;
+            let containerWidth = 0;
+            
+            const mouseDownHandler = function(e) {
+                // 获取初始鼠标位置
+                x = e.clientX;
+                
+                // 获取初始面板宽度和容器宽度
+                const rect = leftPanel.getBoundingClientRect();
+                leftPanelWidth = rect.width;
+                containerWidth = flexContainer.getBoundingClientRect().width;
+                
+                // 添加拖动状态样式
+                resizer.classList.add('dragging');
+                
+                // 添加鼠标事件监听器
+                document.addEventListener('mousemove', mouseMoveHandler);
+                document.addEventListener('mouseup', mouseUpHandler);
+            };
+            
+            const mouseMoveHandler = function(e) {
+                // 计算鼠标移动的距离
+                const dx = e.clientX - x;
+                
+                // 计算新的左侧面板宽度比例
+                const newLeftRatio = (leftPanelWidth + dx) / containerWidth;
+                
+                // 确保宽度在合理范围内 (20%-80%)
+                if (newLeftRatio >= 0.2 && newLeftRatio <= 0.8) {
+                    leftPanel.style.flex = `${newLeftRatio}`;
+                    rightPanel.style.flex = `${1 - newLeftRatio}`;
+                    
+                    // 触发窗口调整大小事件以更新图表
+                    window.dispatchEvent(new Event('resize'));
+                }
+            };
+            
+            const mouseUpHandler = function() {
+                // 移除拖动状态样式
+                resizer.classList.remove('dragging');
+                
+                // 移除事件监听器
+                document.removeEventListener('mousemove', mouseMoveHandler);
+                document.removeEventListener('mouseup', mouseUpHandler);
+                
+                // 强制更新所有图表
+                setTimeout(() => {
+                    if (timeResponseChart) timeResponseChart.update();
+                    if (bodeCombinedChart) bodeCombinedChart.update();
+                    
+                    // 更新极点图
+                    updatePolePlot();
+                }, 200);
+            };
+            
+            // 添加鼠标按下事件监听器
+            resizer.addEventListener('mousedown', mouseDownHandler);
+            
+            console.log("面板分隔线拖动功能初始化完成");
+        }
+        
+        // 添加点击物理系统背景设置目标值的功能
+        function initAnimationClickHandler() {
+            const animationContainer = document.getElementById('animation-container');
+            const hoverIndicator = document.getElementById('hover-indicator');
+            const hoverValue = document.getElementById('hover-value');
+            
+            if (!animationContainer || !hoverIndicator || !hoverValue) {
+                console.error("无法找到动画容器或指示器元素");
+                return;
+            }
+            
+            // 鼠标移动时显示当前位置的高度指示器
+            animationContainer.addEventListener('mousemove', function(e) {
+                // 无论动画是否运行都显示指示器
+                // (移除了之前的 if (!stepInput) 判断)
+                const rect = animationContainer.getBoundingClientRect();
+                const clickYFromBottom = rect.height - (e.clientY - rect.top);
+                
+                // 点击的是底部空白区域，位置过低
+                if (clickYFromBottom < 20) {
+                    hoverIndicator.style.display = 'none';
+                    hoverValue.style.display = 'none';
+                    animationContainer.style.cursor = 'default';
+                    return;
+                }
+                
+                // 计算对应的高度值
+                const scaleFactor = 5;
+                let hoverHeight = (clickYFromBottom - 20) / scaleFactor;
+                hoverHeight = Math.max(0, Math.min(100, hoverHeight));
+                hoverHeight = Math.round(hoverHeight * 10) / 10;
+                
+                // 更新指示器位置
+                hoverIndicator.style.bottom = `${clickYFromBottom}px`;
+                hoverIndicator.style.display = 'block';
+                
+                // 更新数值显示
+                hoverValue.textContent = `${hoverHeight.toFixed(1)} m`;
+                hoverValue.style.bottom = `${clickYFromBottom}px`;
+                hoverValue.style.display = 'block';
+                
+                // 更改鼠标光标
+                animationContainer.style.cursor = 'pointer';
+            });
+            
+            // 鼠标离开时隐藏指示器
+            animationContainer.addEventListener('mouseleave', function() {
+                hoverIndicator.style.display = 'none';
+                hoverValue.style.display = 'none';
+            });
+            
+            // 点击设置目标值
+            animationContainer.addEventListener('click', function(e) {
+                // 允许在动画运行时也能设置目标值
+                // (移除了之前的 if (stepInput) return; 判断)
+                
+                // 获取动画容器的位置信息
+                const rect = animationContainer.getBoundingClientRect();
+                
+                // 计算点击位置相对于容器底部的高度（像素）
+                const clickYFromBottom = rect.height - (e.clientY - rect.top);
+                
+                // 点击的是底部空白区域，位置过低
+                if (clickYFromBottom < 20) return;
+                
+                // 根据点击高度计算目标值（像素→物理单位）
+                const scaleFactor = 5; // 与动画中相同的缩放因子
+                let newTarget = (clickYFromBottom - 20) / scaleFactor;
+                
+                // 将值限制在滑块的范围内并四舍五入到1位小数
+                newTarget = Math.max(0, Math.min(100, newTarget));
+                newTarget = Math.round(newTarget * 10) / 10;
+                
+                // 更新设定值
+                setpoint = newTarget;
+                
+                // 更新设定值滑块
+                const setpointSlider = document.getElementById('setpoint');
+                if (setpointSlider) {
+                    setpointSlider.value = setpoint;
+                }
+                
+                // 更新设定值显示
+                const setpointValue = document.getElementById('setpoint-value');
+                if (setpointValue) {
+                    setpointValue.textContent = setpoint;
+                }
+                
+                // 更新目标线
+                updateTargetLine(setpoint);
+                
+                // 更新时域响应图
+                updateTimeResponse();
+                
+                // 添加视觉反馈
+                const targetLine = document.getElementById('target-line');
+                if (targetLine) {
+                    // 添加闪烁高亮效果
+                    targetLine.style.transition = 'background-color 0.2s';
+                    const originalColor = targetLine.style.backgroundColor || 'rgba(46, 204, 113, 0.8)';
+                    targetLine.style.backgroundColor = 'rgba(46, 204, 113, 1)';
+                    targetLine.style.boxShadow = '0 0 8px rgba(46, 204, 113, 0.9)';
+                    targetLine.style.height = '3px';
+                    
+                    // 恢复原样
+                    setTimeout(() => {
+                        targetLine.style.backgroundColor = originalColor;
+                        targetLine.style.boxShadow = 'none';
+                        targetLine.style.height = '2px';
+                    }, 300);
+                }
+                
+                // // 如果动画正在运行，添加额外的提示信息
+                // if (stepInput) {
+                //     // 创建一个临时提示元素
+                //     const notification = document.createElement('div');
+                //     notification.textContent = `目标高度已更新: ${setpoint.toFixed(1)} m`;
+                //     notification.style.position = 'absolute';
+                //     notification.style.left = '50%';
+                //     notification.style.bottom = `${clickYFromBottom + 30}px`;
+                //     notification.style.transform = 'translateX(-50%)';
+                //     notification.style.backgroundColor = 'rgba(46, 204, 113, 0.8)';
+                //     notification.style.color = 'white';
+                //     notification.style.padding = '5px 10px';
+                //     notification.style.borderRadius = '3px';
+                //     notification.style.fontSize = '12px';
+                //     notification.style.zIndex = '100';
+                //     notification.style.opacity = '0';
+                //     notification.style.transition = 'opacity 0.3s';
+                    
+                //     // 添加到容器
+                //     animationContainer.appendChild(notification);
+                    
+                //     // 显示然后淡出
+                //     setTimeout(() => notification.style.opacity = '1', 10);
+                //     setTimeout(() => notification.style.opacity = '0', 1500);
+                //     setTimeout(() => animationContainer.removeChild(notification), 1800);
+                // }
+                
+                console.log("通过点击更新设定值为:", setpoint);
+            });
+            
+            console.log("物理系统背景点击功能初始化完成");
+        }
+        
+        // 更新PID控制器UI状态的函数
+        function updatePIDControlsState(enabled) {
+            // 更新面板状态
+            if (pidControlsPanel) {
+                pidControlsPanel.style.opacity = enabled ? '1' : '0.5';
+                pidControlsPanel.style.pointerEvents = enabled ? 'auto' : 'none';
+            }
+            
+            // 更新滑块禁用状态
+            const pidSliders = [kpSlider, kiSlider, kdSlider];
+            pidSliders.forEach(slider => {
+                if (slider) {
+                    slider.disabled = !enabled;
+                    // 添加灰色样式
+                    if (enabled) {
+                        slider.classList.remove('disabled-slider');
+                    } else {
+                        slider.classList.add('disabled-slider');
+                    }
+                }
+            });
+            
+            // 更新开环控制按钮
+            if (openLoopButton) {
+                openLoopButton.style.opacity = enabled ? '0.5' : '1';
+                openLoopButton.disabled = enabled;
+            }
         }
     </script>
 </body>
